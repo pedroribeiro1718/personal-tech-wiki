@@ -8,6 +8,11 @@ explain the final design, and keep reusable commands or code beside the article.
 
 ## Linux
 
+### Desktop
+
+- [Install the patched Wallpaper Engine KDE plugin on
+  CachyOS](linux/desktop/cachyos-wallpaper-engine-kde-patched.md)
+
 ### Networking
 
 - [Fixing pathological Flathub downloads with a WARP-backed Tailscale exit
@@ -37,4 +42,3 @@ explain the final design, and keep reusable commands or code beside the article.
 - Replace public, LAN, and tailnet addresses with documented placeholders.
 - Prefer commands that are safe to rerun and explain destructive operations.
 - Label observations as observations rather than universal benchmarks.
-
