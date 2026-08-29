@@ -6,6 +6,8 @@ readonly PZ_SERVICE="org.plasmazones"
 readonly PZ_OBJECT="/PlasmaZones"
 readonly PZ_LAYOUT_IFACE="org.plasmazones.LayoutRegistry"
 readonly BSP_LAYOUT_ID="{1c85ee9a-25f6-4109-a074-b0bc7072418c}"
+readonly GUARD_ID="plasmazones-omarchy-lock"
+readonly GUARD_SCRIPT="${HOME}/.local/share/kwin/scripts/${GUARD_ID}/contents/code/main.js"
 
 fail() {
     notify-send --app-name="PlasmaZones" --urgency=critical \
@@ -32,11 +34,11 @@ jq -e 'type == "array" and length > 0' >/dev/null <<<"$states" \
 if jq -e 'all(.[]; .mode == 0)' >/dev/null <<<"$states"; then
     target_mode=1
     mode_name="Omarchy mode"
-    mode_detail="Automatic tiling is active on all monitors. Super+G selects a tiling algorithm."
+    mode_detail="Automatic tiling is active. Tiled windows ignore mouse move and resize gestures."
 else
     target_mode=0
     mode_name="FancyZones mode"
-    mode_detail="Zone snapping is active on all monitors. Hold Ctrl+Alt while dragging to span zones."
+    mode_detail="Zone snapping is active. Hold Ctrl+Alt while dragging to span zones."
 fi
 
 qdbus6 "$PZ_SERVICE" "$PZ_OBJECT" \
@@ -77,6 +79,19 @@ qdbus6 "$PZ_SERVICE" "$PZ_OBJECT" \
 
 batch_open=false
 trap - EXIT
+
+# Reload the guard after every mode change so its synchronous per-output cache
+# always matches the assignments that were just applied.
+if [[ -f "$GUARD_SCRIPT" ]]; then
+    qdbus6 org.kde.KWin /Scripting \
+        org.kde.kwin.Scripting.unloadScript "$GUARD_ID" >/dev/null 2>&1 || true
+    qdbus6 org.kde.KWin /Scripting \
+        org.kde.kwin.Scripting.loadScript "$GUARD_SCRIPT" "$GUARD_ID" >/dev/null \
+        || fail "Could not reload the Omarchy mouse guard."
+    qdbus6 org.kde.KWin /Scripting \
+        org.kde.kwin.Scripting.start >/dev/null \
+        || fail "Could not start the Omarchy mouse guard."
+fi
 
 notify-send --app-name="PlasmaZones" --icon=preferences-system-windows \
     "$mode_name" "$mode_detail"

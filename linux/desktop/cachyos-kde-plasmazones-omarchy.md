@@ -1,51 +1,56 @@
 # PlasmaZones on KDE: Omarchy tiling and FancyZones snapping
 
-This setup keeps KDE Plasma and KWin while adding two predictable window-management modes:
+This setup keeps KDE/KWin and provides two modes:
 
 | Mode | Behavior |
 | --- | --- |
-| **Omarchy** | Automatic Dwindle/BSP tiling with keyboard focus, swaps, gaps, and floating exceptions |
-| **FancyZones** | Fixed zones, a drag overlay, and multi-zone spanning |
+| **Omarchy** | Automatic Dwindle/BSP tiling, keyboard focus/swaps, and fixed tiled windows |
+| **FancyZones** | Fixed layouts, drag overlay, and multi-zone spanning |
 
-The reference system is CachyOS, Plasma 6, Wayland, and mixed-DPI monitors.
+Reference system: CachyOS, Plasma 6 Wayland, and mixed-DPI monitors.
 
 ## Preconditions
 
 - Install and enable [PlasmaZones](https://phosphor-works.github.io/plasmazones/getting-started/).
-- Use only one automatic tiler. Remove or disable Krohnkite, KZones, Polonium, and similar KWin scripts.
-- Use KDE **Click to focus** and keep PlasmaZones **Focus follows mouse** off.
-- Back up `~/.config/plasmazones/`, `~/.config/kglobalshortcutsrc`, `~/.config/kwinrc`, and `~/.config/kwinrulesrc`.
-- Review KDE Window Rules that force borders, geometry, maximization, or a monitor.
+- Remove or disable every other automatic KWin tiler, including Krohnkite, KZones, and Polonium.
+- Use KDE **Click to focus**; disable PlasmaZones **Focus follows mouse**.
+- Remove KDE shortcuts that conflict with the table below.
+- Review KDE Window Rules that force geometry, maximization, borders, or a monitor.
+- Back up `~/.config/plasmazones/`, `kglobalshortcutsrc`, `kwinrc`, and `kwinrulesrc` before migrating.
 
-The profile cannot remove competing scripts, release KDE shortcuts, or assign layouts to monitor/desktop/activity contexts.
+The JSON profile cannot perform those machine-level changes.
 
 ## Install
 
-1. Import [`omarchy-on-kde-profile.json`](../../examples/plasmazones/omarchy-on-kde-profile.json) in **PlasmaZones Settings → Profiles**.
-2. Select **Omarchy on KDE**. PlasmaZones applies profile edits immediately; there is no Save button.
-3. Assign a snapping layout and tiling algorithm to every monitor context in **Overview**.
-4. Install the two-mode helper:
+1. Import [`omarchy-on-kde-profile.json`](../../examples/plasmazones/omarchy-on-kde-profile.json) under **PlasmaZones Settings → Profiles** and select **Omarchy on KDE**. Changes apply immediately; there is no Save button.
+2. In **Overview**, assign a fixed layout and an automatic algorithm to every monitor/desktop/activity context.
+3. Install the mode helper and Omarchy mouse guard:
 
    ```bash
    install -Dm755 examples/plasmazones/plasmazones-mode-toggle \
      ~/.local/bin/plasmazones-mode-toggle
    install -Dm644 examples/plasmazones/plasmazones-mode-toggle.desktop \
      ~/.local/share/applications/plasmazones-mode-toggle.desktop
+   install -Dm644 examples/plasmazones/plasmazones-omarchy-lock/metadata.json \
+     ~/.local/share/kwin/scripts/plasmazones-omarchy-lock/metadata.json
+   install -Dm644 examples/plasmazones/plasmazones-omarchy-lock/contents/code/main.js \
+     ~/.local/share/kwin/scripts/plasmazones-omarchy-lock/contents/code/main.js
+   kwriteconfig6 --file kwinrc --group Plugins \
+     --key plasmazones-omarchy-lockEnabled true
    kbuildsycoca6 --noincremental
    ```
 
-5. In **System Settings → Keyboard → Shortcuts**, clear `Super+Shift+T` from PlasmaZones' three-mode cycle and assign it to **Toggle PlasmaZones Mode**.
-
-The profile uses 8 px inner/12 px outer gaps, keyboard-stable focus, hidden tiled title bars, 2 px borders, rounded corners, and an Omarchy-only floating rule for the Steam client.
+4. Clear `Super+Shift+T` from PlasmaZones' native three-mode cycle, then assign it to **Toggle PlasmaZones Mode** in KDE Shortcuts.
+5. Log out/in once, or toggle modes once, to load the guard.
 
 ## Daily use
 
-Press `Super+Shift+T` to switch all current monitors together:
+Press `Super+Shift+T` to switch every current monitor together.
 
-- **Omarchy mode:** new normal windows tile automatically. `Super+G` selects Dwindle, BSP, or another automatic algorithm.
-- **FancyZones mode:** `Super+G` selects a fixed layout. Hold `Alt` while dragging for the overlay; hold `Ctrl+Alt` and drag across adjacent zones to span them.
+- **Omarchy:** normal windows tile automatically. Tiled windows ignore mouse move and frame-resize gestures. Float a window first if it must move freely.
+- **FancyZones:** hold `Alt` while dragging for the overlay; hold `Ctrl+Alt` and drag across adjacent zones to span them.
 
-PlasmaZones does not show the fixed-zone drag overlay while automatic tiling owns the screen. Multi-zone spans stay within one physical monitor.
+The fixed-zone overlay and multi-zone spanning are FancyZones features; they do not appear while automatic tiling owns the screen. Spans stay within one physical monitor.
 
 ## Keyboard cheat sheet
 
@@ -54,83 +59,87 @@ PlasmaZones does not show the fixed-zone drag overlay while automatic tiling own
 | Shortcut | Action |
 | --- | --- |
 | `Super+Arrow` | Focus in that direction |
-| `Super+Shift+Arrow` | Swap the focused window in that direction |
-| `Super+G` | Open the layout/algorithm picker |
-| `Super+Shift+G` | Open the zone editor |
-| `Super+T` | Toggle the focused window between tiled and floating |
-| `Super+-` / `Super+=` | Decrease/increase the automatic split ratio |
-| `Super+Ctrl+T` | Retile the current context |
-| `Super+Shift+T` | Toggle Omarchy/FancyZones mode on all monitors |
+| `Super+Shift+Arrow` | Swap in that direction |
+| `Super+G` | Open layout/algorithm picker |
+| `Super+Shift+G` | Open zone editor |
+| `Super+T` | Toggle focused window between tiled and floating |
+| `Super+-` / `Super+=` | Adjust automatic split ratio |
+| `Super+Ctrl+T` | Retile current context |
+| `Super+Shift+T` | Toggle Omarchy/FancyZones on all monitors |
 
 | FancyZones gesture | Action |
 | --- | --- |
-| `Alt` + drag | Show the zone overlay and snap |
+| `Alt` + drag | Show overlay and snap |
 | `Ctrl+Alt` + drag | Span adjacent zones |
 
-## Release conflicting KDE shortcuts
+## KDE shortcut conflicts
 
-Clear these current bindings in **System Settings → Keyboard → Shortcuts**:
+Clear the current KDE binding for each chord, then confirm PlasmaZones owns it:
 
-| PlasmaZones chord | KDE action to clear |
+| Chord | Common KDE owner |
 | --- | --- |
 | `Super+T` | KWin **Edit Tiles** |
 | `Super+G` | KWin **Grid View** |
 | `Super+Arrow` | KWin **Quick Tile Window…** |
 | `Super+Shift+Left/Right` | KWin **Move Window to Previous/Next Screen** |
 | `Super+-` / `Super+=` | KWin desktop zoom |
-| `Super+Ctrl+T` | Wacom **Enable/Disable Touch Tool**, if present |
+| `Super+Ctrl+T` | Wacom **Enable/Disable Touch Tool** |
 
-Defaults may remain listed; remove the active/current assignments. Verify the intended owner under the **PlasmaZones** component afterward.
+## Mixed DPI and floating exceptions
 
-## Mixed DPI and application constraints
+PlasmaZones tiles in each output's **logical** coordinate space. The guard identifies the output and PlasmaZones context directly; it does not compare physical pixels, so different scale factors need no special rule.
 
-Layouts use each output's **logical** geometry. A window can therefore fit a tile on one scaled display but not another.
+Applications can still enforce a minimum logical size larger than a tile. Steam is floated only when `app-id = steam` and `mode = tiling`; game windows are unaffected. Avoid a global `STEAM_FORCE_DESKTOPUI_SCALING` value or a hard-coded connector route on mixed-DPI systems.
 
-Steam is the practical example: its client advertises a minimum logical size larger than a half-tile on the smaller logical output. KWin must honor that client minimum, so forcing geometry makes Steam overlap neighboring tiles. A global `STEAM_FORCE_DESKTOPUI_SCALING` value is also wrong for displays with different scaling.
-
-The profile instead floats only app ID `steam` when the mode is `tiling`. This follows Omarchy's current Steam-client convention and leaves `steam_app_*` game windows alone. In FancyZones mode the client remains managed and can still be dragged into a sufficiently large zone.
-
-Do not hard-route Steam to a connector unless that placement is intentional; connector names, primary-output state, and logical geometry can change. Use `Super+T` for any other application whose minimum size cannot fit its tile.
-
-### Why frame resizing remains enabled
-
-Omarchy mode constrains placement, not a client's legal size range. PlasmaZones detects an interactive border resize and reflows neighboring tiled windows around it. Disabling KWin resizing globally would also break floating windows, dialogs, and mixed-DPI recovery without solving hard client minimums.
-
-Dragging a tiled window is configured to reorder the tree. Use `Super+T` before free-form moving or sizing, then press it again to rejoin the layout.
+In Omarchy mode, `Super+T` is the escape hatch: floating windows remain movable and resizable; tiled windows do not.
 
 ## Troubleshooting
 
+### A normal application reopens floating
+
+PlasmaZones persists per-window floating state independently of the profile. First use `Super+T`, then `Super+Ctrl+T`. If stale state affects several applications, reset only placement history:
+
+```bash
+systemctl --user mask --runtime plasmazones.service
+systemctl --user stop plasmazones.service
+cp ~/.config/plasmazones/session.json \
+  ~/.config/plasmazones/session.json.before-placement-reset
+jq '.WindowTracking.WindowPlacements = {} |
+    .WindowTracking.UserSnappedClasses = []' \
+  ~/.config/plasmazones/session.json > /tmp/plasmazones-session-clean.json
+install -m 0644 /tmp/plasmazones-session-clean.json \
+  ~/.config/plasmazones/session.json
+systemctl --user unmask --runtime plasmazones.service
+systemctl --user start plasmazones.service
+```
+
+Reload the `kwin_effect_plasmazones` effect or log out/in afterward. This preserves profiles, rules, layouts, and shortcuts but removes remembered placements.
+
 ### The grid or spanning overlay does not appear
 
-Switch to **FancyZones mode** with `Super+Shift+T`. Use `Super+G` for the picker and `Super+Shift+G` for the editor. `Ctrl+Alt` spanning needs adjacent zones in the active fixed layout.
+Switch to FancyZones with `Super+Shift+T`. Use `Super+G` for the picker. `Ctrl+Alt` spanning requires adjacent zones in the active fixed layout.
 
 ### Keyboard focus snaps back
 
-Use KDE **Click to focus** and disable PlasmaZones **Focus follows mouse**. Pointer-driven focus can reclaim focus as soon as the shortcut is released.
+Use KDE **Click to focus** and keep both PlasmaZones focus-follows-mouse settings off.
 
-### A shortcut does nothing
+### A tiled window still moves or resizes
 
-Search the exact chord in KDE Shortcuts and remove every competing current assignment. Split-ratio and retile actions only operate in Omarchy mode.
+Confirm the window is not floating, then check that the guard is loaded:
 
-### A window has no border
+```bash
+qdbus6 org.kde.KWin /Scripting \
+  org.kde.kwin.Scripting.isScriptLoaded plasmazones-omarchy-lock
+```
 
-Set **Appearance → Window appearance → Border → Apply to** to **All windows**. Then inspect any application-specific KDE Window Rule and the window's floating state.
+The answer should be `true`. The guard deliberately does nothing in FancyZones mode.
 
-### A tiled application overlaps its neighbors
+## Validated behavior
 
-The application probably enforces a minimum size larger than its logical tile. Float it with `Super+T`, enlarge the layout cell, or add a mode-scoped PlasmaZones float rule. Do not use a global scaling override on mixed-DPI outputs.
+- Fresh Konsole windows tiled on both 150%-scaled outputs.
+- Konsole remained tiled after close/reopen and after a PlasmaZones daemon/effect restart.
+- Omarchy → FancyZones → Omarchy preserved each monitor's layout and algorithm.
+- Explicit float/unfloat returned the window to its automatic tiling tree.
+- The clean placement store contained only `tiled` records after testing.
 
-### Windows remain floating after returning to Omarchy mode
-
-Focus an affected window, press `Super+T`, then press `Super+Ctrl+T` once.
-
-## Reference-system changes
-
-- Removed Krohnkite, KZones, and Polonium.
-- Released the KDE shortcut collisions listed above.
-- Assigned both monitor contexts and installed the two-mode helper.
-- Kept click-to-focus and disabled pointer-driven focus.
-- Applied borders to all windows and cleared stale Zen Browser floating state.
-- Added a `steam` + `tiling` → **Float** PlasmaZones rule; no global Steam scale or monitor route is used.
-
-To roll back, disable PlasmaZones, restore the backed-up configuration files, and restore any desired KDE shortcuts. Re-enable at most one automatic tiler.
+To roll back, disable PlasmaZones and the guard, restore the backed-up files, and restore any desired KDE shortcuts. Re-enable at most one automatic tiler.
