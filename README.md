@@ -12,8 +12,8 @@ explain the final design, and keep reusable commands or code beside the article.
 
 - [Install the patched Wallpaper Engine KDE plugin on
   CachyOS](linux/desktop/cachyos-wallpaper-engine-kde-patched.md)
-- [Omarchy-style keyboard tiling on KDE with
-  PlasmaZones](linux/desktop/cachyos-kde-plasmazones-omarchy.md)
+- [PlasmaZones on KDE: Omarchy tiling and FancyZones
+  snapping](linux/desktop/cachyos-kde-plasmazones-omarchy.md)
 
 ### Networking
 
@@ -29,8 +29,8 @@ explain the final design, and keep reusable commands or code beside the article.
   isolated real-world Flatpak/OSTree download test that does not deploy the
   downloaded runtime.
 - [`examples/plasmazones/omarchy-on-kde-profile.json`](examples/plasmazones/omarchy-on-kde-profile.json)
-  — an importable Dwindle tiling and keyboard-navigation profile for
-  PlasmaZones on KDE.
+  — an importable two-mode profile with automatic tiling, fixed-zone snapping,
+  keyboard navigation, and a mixed-DPI-safe Steam exception.
 - [`examples/plasmazones/plasmazones-mode-toggle`](examples/plasmazones/plasmazones-mode-toggle)
   — an all-monitor, two-state switch between Omarchy auto-tiling and
   FancyZones snapping, with a matching KDE desktop action.
