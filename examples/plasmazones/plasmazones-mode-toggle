@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly PZ_SERVICE="org.plasmazones"
+readonly PZ_OBJECT="/PlasmaZones"
+readonly PZ_LAYOUT_IFACE="org.plasmazones.LayoutRegistry"
+readonly BSP_LAYOUT_ID="{1c85ee9a-25f6-4109-a074-b0bc7072418c}"
+
+fail() {
+    notify-send --app-name="PlasmaZones" --urgency=critical \
+        "PlasmaZones mode switch failed" "$1"
+    exit 1
+}
+
+command -v qdbus6 >/dev/null || fail "qdbus6 is not installed."
+command -v jq >/dev/null || fail "jq is not installed."
+
+# Prevent two rapid shortcut presses from interleaving assignment batches.
+exec 9>"/tmp/plasmazones-mode-toggle-${UID}.lock"
+flock -n 9 || exit 0
+
+states="$(qdbus6 "$PZ_SERVICE" "$PZ_OBJECT" \
+    "$PZ_LAYOUT_IFACE.getScreenStates")" \
+    || fail "Could not read screen assignments from plasmazonesd."
+
+jq -e 'type == "array" and length > 0' >/dev/null <<<"$states" \
+    || fail "PlasmaZones returned no active screen contexts."
+
+# A mixed desktop converges to FancyZones first. The following press then
+# switches every current screen to Omarchy, keeping the experience predictable.
+if jq -e 'all(.[]; .mode == 0)' >/dev/null <<<"$states"; then
+    target_mode=1
+    mode_name="Omarchy mode"
+    mode_detail="Automatic tiling is active on all monitors. Super+G selects a tiling algorithm."
+else
+    target_mode=0
+    mode_name="FancyZones mode"
+    mode_detail="Zone snapping is active on all monitors. Hold Ctrl+Alt while dragging to span zones."
+fi
+
+qdbus6 "$PZ_SERVICE" "$PZ_OBJECT" \
+    "$PZ_LAYOUT_IFACE.setSaveBatchMode" true >/dev/null \
+    || fail "Could not begin the assignment update."
+
+batch_open=true
+close_batch_on_error() {
+    if [[ "$batch_open" == true ]]; then
+        qdbus6 "$PZ_SERVICE" "$PZ_OBJECT" \
+            "$PZ_LAYOUT_IFACE.setSaveBatchMode" false >/dev/null 2>&1 || true
+    fi
+}
+trap close_batch_on_error EXIT
+
+while IFS= read -r state; do
+    screen_id="$(jq -r '.screenId' <<<"$state")"
+    desktop="$(jq -r '.virtualDesktop' <<<"$state")"
+    activity="$(jq -r '.activity // ""' <<<"$state")"
+    snapping_layout="$(jq -r '.snappingLayoutId // ""' <<<"$state")"
+    tiling_algorithm="$(jq -r '.algorithmId // ""' <<<"$state")"
+
+    [[ -n "$snapping_layout" && "$snapping_layout" != "none" ]] \
+        || snapping_layout="$BSP_LAYOUT_ID"
+    [[ -n "$tiling_algorithm" && "$tiling_algorithm" != "none" ]] \
+        || tiling_algorithm="dwindle"
+
+    qdbus6 "$PZ_SERVICE" "$PZ_OBJECT" \
+        "$PZ_LAYOUT_IFACE.setAssignmentEntry" \
+        "$screen_id" "$desktop" "$activity" "$target_mode" \
+        "$snapping_layout" "$tiling_algorithm" >/dev/null \
+        || fail "Could not update $screen_id."
+done < <(jq -c '.[]' <<<"$states")
+
+qdbus6 "$PZ_SERVICE" "$PZ_OBJECT" \
+    "$PZ_LAYOUT_IFACE.applyAssignmentChanges" >/dev/null \
+    || fail "Could not apply the new mode."
+
+batch_open=false
+trap - EXIT
+
+notify-send --app-name="PlasmaZones" --icon=preferences-system-windows \
+    "$mode_name" "$mode_detail"

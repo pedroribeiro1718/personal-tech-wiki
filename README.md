@@ -31,6 +31,9 @@ explain the final design, and keep reusable commands or code beside the article.
 - [`examples/plasmazones/omarchy-on-kde-profile.json`](examples/plasmazones/omarchy-on-kde-profile.json)
   — an importable Dwindle tiling and keyboard-navigation profile for
   PlasmaZones on KDE.
+- [`examples/plasmazones/plasmazones-mode-toggle`](examples/plasmazones/plasmazones-mode-toggle)
+  — an all-monitor, two-state switch between Omarchy auto-tiling and
+  FancyZones snapping, with a matching KDE desktop action.
 
 ## Intended future topics
 

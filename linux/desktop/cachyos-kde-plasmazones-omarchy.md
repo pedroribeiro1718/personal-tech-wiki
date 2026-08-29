@@ -28,9 +28,9 @@ Before importing the profile, account for these machine-level conditions:
    must release any existing owners listed in the table below. Importing the
    profile does not do this for you.
 3. **Assign every intended display context.** Each relevant combination of
-   screen, virtual desktop, and activity must use **Tiling** mode with the
-   **Dwindle** placement algorithm. These assignments are local state and are
-   not carried by the profile.
+   screen, virtual desktop, and activity needs both a snapping layout and a
+   tiling algorithm. These assignments are local state and are not carried by
+   the profile.
 4. **Use stable keyboard focus semantics.** The reference setup uses KDE's
    normal click-to-focus behavior and disables PlasmaZones' focus-follows-mouse
    option. Otherwise, moving focus with the keyboard can appear to work only
@@ -78,6 +78,7 @@ reviewing them for machine-specific or personal data.
 | PlasmaZones decorations and animation preferences | Competing KWin-script installation or enablement |
 | PlasmaZones focus preference | Screen, desktop, and activity mode assignments |
 | General PlasmaZones placement preferences | KWin window rules and current floating/session state |
+| — | The two-mode helper and its KDE shortcut registration |
 
 ### Rollback
 
@@ -110,7 +111,7 @@ To return toward the stock KDE behavior:
 | `Super` + `T` | Toggle the focused window between tiled and floating |
 | `Super` + `-` | Decrease the Dwindle master/split ratio |
 | `Super` + `=` | Increase the Dwindle master/split ratio |
-| `Super` + `Shift` + `T` | Cycle Snapping → Tiling → Scrolling |
+| `Super` + `Shift` + `T` | Toggle the whole desktop between Omarchy and FancyZones modes |
 | `Super` + `Ctrl` + `T` | Retile all managed windows |
 
 ### Mouse-assisted FancyZones controls
@@ -119,6 +120,10 @@ To return toward the stock KDE behavior:
 | --- | --- |
 | Hold `Alt` while dragging | Show the live zone overlay |
 | Hold `Alt` + `Ctrl` while dragging across zones | Span adjacent zones |
+
+The mouse gestures operate in **FancyZones mode**. PlasmaZones deliberately
+suppresses the snapping overlay while an automatic tiling engine owns the
+screen.
 
 ## Install and import
 
@@ -141,6 +146,27 @@ Then import the profile:
 5. In **Overview**, assign each monitor/desktop to **Tiling** with the
    **Dwindle** algorithm.
 
+### Install the two-mode switch
+
+PlasmaZones' built-in `Super+Shift+T` action cycles through three placement
+engines. The reference system replaces it with a two-state, all-monitor switch:
+
+1. Install
+   [`plasmazones-mode-toggle`](../../examples/plasmazones/plasmazones-mode-toggle)
+   as `~/.local/bin/plasmazones-mode-toggle` and make it executable.
+2. Install
+   [`plasmazones-mode-toggle.desktop`](../../examples/plasmazones/plasmazones-mode-toggle.desktop)
+   under `~/.local/share/applications/`.
+3. Refresh KDE's service cache with `kbuildsycoca6 --noincremental`.
+4. In **System Settings → Keyboard → Shortcuts**, clear `Super+Shift+T` from
+   PlasmaZones' **Cycle Placement Mode** action. Assign it to **Toggle
+   PlasmaZones Mode** instead.
+
+The helper updates all current monitor contexts in one batch. It preserves the
+last snapping layout and tiling algorithm selected on each monitor. A mixed
+desktop converges to FancyZones mode on the first press and Omarchy mode on the
+next.
+
 The profile configures:
 
 - one Dwindle master window;
@@ -155,13 +181,18 @@ The profile configures:
 
 ## Daily use
 
-Normal application windows join the Dwindle tree automatically. Use
-`Super` + an arrow to move focus and add `Shift` to move the focused window
-within the tree.
+Press `Super+Shift+T` to choose the interaction model for the whole desktop:
+
+- **Omarchy mode** uses automatic tiling. Normal application windows join the
+  selected algorithm automatically. Use `Super` + an arrow to move focus and
+  add `Shift` to move the focused window within the tree.
+- **FancyZones mode** uses a fixed layout. Hold `Alt` while dragging to show
+  its zones, or hold `Ctrl+Alt` and drag across adjacent zones to span them.
 
 `Super` + `G` displays the visual layout picker. Choose a layout with the mouse
-or arrow keys. `Super` + `Shift` + `G` opens the editor when the zone geometry
-itself needs to change.
+or arrow keys. In Omarchy mode it selects an automatic tiling algorithm; in
+FancyZones mode it selects a fixed snapping layout. `Super` + `Shift` + `G`
+opens the editor when fixed zone geometry needs to change.
 
 Use `Super` + `T` for dialogs, media players, picture-in-picture windows, or
 anything else that should float. Press it again to return the window to the
@@ -171,9 +202,8 @@ Use `Super` + `-` or `Super` + `=` to change the main split. The effect is most
 obvious with at least two tiled windows. Use `Super` + `Ctrl` + `T` to rebuild
 the layout if geometry becomes stale.
 
-`Super` + `Shift` + `T` changes the entire placement engine. Keep the screen in
-**Tiling** for this workflow. If it is pressed accidentally, continue cycling
-until the PlasmaZones OSD reports **Tiling**.
+The helper switches both monitors together and sends a desktop notification
+with the resulting mode. It does not enter PlasmaZones' Scrolling engine.
 
 ## Remove KDE shortcut conflicts
 
@@ -212,6 +242,8 @@ chord for multiple actions, but only one owner receives it reliably.
 - Removed every KDE global-shortcut collision listed above.
 - Assigned `Super+G` to the PlasmaZones picker and `Super+Shift+G` to its
   editor.
+- Replaced PlasmaZones' three-way placement cycle on `Super+Shift+T` with the
+  two-state, all-monitor mode helper included in this repository.
 - Kept KDE on click-to-focus and disabled PlasmaZones focus-follows-mouse so
   directional keyboard focus persists after releasing the chord.
 - Changed border scope from tiled-only to all windows.
@@ -237,6 +269,18 @@ operate on while the screen is in Snapping mode.
 The old `Super+T` binding opened KWin's native tile editor and was removed to
 make room for the PlasmaZones floating toggle. Use `Super+G` for the
 PlasmaZones layout picker and `Super+Shift+G` for its zone editor.
+
+If the drag overlay does not appear, press `Super+Shift+T` until the
+notification reports **FancyZones mode**. Automatic tiling owns window
+geometry in Omarchy mode, so the snapping overlay and multi-zone mouse span are
+not available there.
+
+### `Ctrl+Alt` dragging does not span zones
+
+Confirm that the desktop is in **FancyZones mode** and that the current fixed
+layout has adjacent zones. Start moving the window by its title bar, then hold
+`Ctrl+Alt`, cross the desired zones, and release the mouse button. PlasmaZones
+does not span across a physical monitor boundary.
 
 ### A window has no PlasmaZones border
 

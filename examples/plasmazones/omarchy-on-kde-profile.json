@@ -48,8 +48,7 @@
     "Shortcuts.Tiling": {
       "DecMasterRatio": "Meta+-",
       "IncMasterRatio": "Meta+=",
-      "Retile": "Meta+Ctrl+T",
-      "Toggle": "Meta+Shift+T"
+      "Retile": "Meta+Ctrl+T"
     },
     "Windows": {
       "BorderColorActive": "#ff89b4fa",
