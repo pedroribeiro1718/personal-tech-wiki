@@ -1,0 +1,19 @@
+# Credentials and VPN state
+*.key
+*.pem
+*.p12
+*.pfx
+wg0.conf
+wgcf-account.toml
+wgcf-profile.conf
+tailscaled.state
+
+# Local environment and editor files
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+*~
+*.swp
+
