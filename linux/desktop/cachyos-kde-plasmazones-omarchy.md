@@ -11,6 +11,86 @@ the importable
 [`omarchy-on-kde-profile.json`](../../examples/plasmazones/omarchy-on-kde-profile.json)
 profile included in this repository.
 
+## Preconditions and tradeoffs
+
+> **The JSON profile is not a complete system migration.** It contains
+> PlasmaZones preferences and PlasmaZones shortcut definitions. It cannot
+> disable other KWin tilers, release KDE global shortcuts, assign placement
+> modes to screens, or change KWin window rules.
+
+Before importing the profile, account for these machine-level conditions:
+
+1. **Use only one automatic tiling engine.** Disable or uninstall competing
+   KWin scripts such as Krohnkite, KZones, or Polonium before enabling
+   PlasmaZones. Two placement engines can move the same window, steal focus,
+   or immediately undo one another's layout decisions.
+2. **Give the chosen chords to PlasmaZones.** KDE's global shortcut service
+   must release any existing owners listed in the table below. Importing the
+   profile does not do this for you.
+3. **Assign every intended display context.** Each relevant combination of
+   screen, virtual desktop, and activity must use **Tiling** mode with the
+   **Dwindle** placement algorithm. These assignments are local state and are
+   not carried by the profile.
+4. **Use stable keyboard focus semantics.** The reference setup uses KDE's
+   normal click-to-focus behavior and disables PlasmaZones' focus-follows-mouse
+   option. Otherwise, moving focus with the keyboard can appear to work only
+   until the shortcut is released, when the pointer's window takes focus back.
+5. **Review KWin window rules.** Rules that force an application to be
+   borderless, floating, maximized, or assigned to a particular screen can
+   override the profile. App-specific exceptions are not portable and should
+   be assessed on the target machine.
+
+### KDE shortcuts relinquished by the reference setup
+
+These are intentional tradeoffs, not accidental losses:
+
+| Chord | Previous KDE owner or behavior | PlasmaZones behavior |
+| --- | --- | --- |
+| `Super+T` | KWin **Edit Tiles** | Toggle floating |
+| `Super+G` | KWin **Grid View** | Open layout picker / show the grid |
+| `Super+Arrow` | KWin **Quick Tile** | Focus a window directionally |
+| `Super+Shift+Left/Right` | Move window to previous/next screen | Swap the focused window directionally |
+| `Super+-` / `Super+=` | KWin desktop zoom | Adjust the Dwindle split ratio |
+| `Super+Ctrl+T` | Wacom **Toggle touch tool**, when present | Retile the current context |
+
+`Super++` remains available for KWin zoom-in on the reference system. The
+Wacom conflict applies only when that component and shortcut are present.
+
+### Back up before changing host-level settings
+
+Keep a copy of the following before removing scripts, shortcuts, or rules:
+
+- `~/.config/plasmazones/`
+- `~/.config/kglobalshortcutsrc`
+- `~/.config/kwinrc`
+- `~/.config/kwinrulesrc`
+
+The first path holds PlasmaZones state; the remaining files hold KDE shortcut,
+window-management, and window-rule state. Do not publish these files without
+reviewing them for machine-specific or personal data.
+
+### What travels with the profile
+
+| Included in the JSON profile | Remains machine-local |
+| --- | --- |
+| PlasmaZones gaps and Dwindle behavior | PlasmaZones installation and service state |
+| PlasmaZones shortcut choices | KDE/KGlobalAccel shortcut removals |
+| PlasmaZones decorations and animation preferences | Competing KWin-script installation or enablement |
+| PlasmaZones focus preference | Screen, desktop, and activity mode assignments |
+| General PlasmaZones placement preferences | KWin window rules and current floating/session state |
+
+### Rollback
+
+To return toward the stock KDE behavior:
+
+1. Disable PlasmaZones or switch the affected contexts from **Tiling** to
+   **Snapping**.
+2. Restore the backed-up configuration files, or reassign the displaced KDE
+   actions in **System Settings → Keyboard → Shortcuts**.
+3. Re-enable at most one previous tiling script if it is still wanted.
+4. Log out and back in if KWin or the global shortcut service retains stale
+   runtime state.
+
 ## Keyboard cheat sheet
 
 `Super` is KDE's name for the `Meta` key.
@@ -41,6 +121,10 @@ profile included in this repository.
 | Hold `Alt` + `Ctrl` while dragging across zones | Span adjacent zones |
 
 ## Install and import
+
+Complete the relevant preconditions above first. In particular, an imported
+profile can display its shortcut choices while KDE's global shortcut service
+still owns the same chords.
 
 Install and enable PlasmaZones using its official
 [Getting Started guide](https://phosphor-works.github.io/plasmazones/getting-started/).
@@ -118,16 +202,26 @@ chord for multiple actions, but only one owner receives it reliably.
 ## Changes made on the reference system
 
 - Installed and enabled PlasmaZones.
-- Removed the obsolete Krohnkite, KZones, and Polonium scripts.
+- Removed the obsolete Krohnkite, KZones, and Polonium scripts. Disabled but
+  still installed scripts should also be checked after a Plasma or KWin
+  restart; stale, unbound shortcut records are harmless, active handlers are
+  not.
 - Created and activated the **Omarchy on KDE** profile.
-- Assigned both monitors on the active desktop to Dwindle tiling.
+- Assigned both monitors, in their active desktop/activity contexts, to
+  Dwindle tiling.
 - Removed every KDE global-shortcut collision listed above.
 - Assigned `Super+G` to the PlasmaZones picker and `Super+Shift+G` to its
   editor.
+- Kept KDE on click-to-focus and disabled PlasmaZones focus-follows-mouse so
+  directional keyboard focus persists after releasing the chord.
 - Changed border scope from tiled-only to all windows.
 - Increased inactive-border visibility.
 - Cleared Zen Browser's stale floating state and retiled the display.
 - Saved rollback copies before changing PlasmaZones and KDE shortcut files.
+
+The border and Zen Browser items are reference-machine corrections, not
+universal requirements. Apply them only when the corresponding application
+symptom exists.
 
 ## Troubleshooting
 
