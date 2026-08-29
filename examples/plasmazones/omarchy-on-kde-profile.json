@@ -1,0 +1,72 @@
+{
+  "_version": 6,
+  "id": "{c9d1ec53-b21a-4d4f-a5aa-9d035cc563d1}",
+  "name": "Omarchy on KDE",
+  "description": "Omarchy-inspired Dwindle tiling with Super-based focus, swap, float and resize controls; persistent gaps; borderless tiled title bars; and rounded focus borders.",
+  "parent": null,
+  "config": {
+    "Gaps": {
+      "Inner": 8,
+      "Outer": 12,
+      "UsePerSide": false
+    },
+    "Tiling": {
+      "Enabled": true
+    },
+    "Tiling.Algorithm": {
+      "Default": "dwindle",
+      "MasterCount": 1,
+      "MaxWindows": 12,
+      "SplitRatio": 0.5,
+      "SplitRatioStep": 0.05
+    },
+    "Tiling.Behavior": {
+      "DragBehavior": 1,
+      "FocusFollowsMouse": true,
+      "FocusNewWindows": true,
+      "InsertPosition": 1,
+      "KeepFloatingAbove": true,
+      "OverflowBehavior": 1,
+      "RespectMinimumSize": false
+    },
+    "Tiling.Gaps": {
+      "SmartGaps": false
+    },
+    "Shortcuts.Global": {
+      "FocusZoneDown": "Meta+Down",
+      "FocusZoneLeft": "Meta+Left",
+      "FocusZoneRight": "Meta+Right",
+      "FocusZoneUp": "Meta+Up",
+      "LayoutPicker": "Meta+G",
+      "OpenEditor": "Meta+Shift+G",
+      "SwapWindowDown": "Meta+Shift+Down",
+      "SwapWindowLeft": "Meta+Shift+Left",
+      "SwapWindowRight": "Meta+Shift+Right",
+      "SwapWindowUp": "Meta+Shift+Up",
+      "ToggleWindowFloat": "Meta+T"
+    },
+    "Shortcuts.Tiling": {
+      "DecMasterRatio": "Meta+-",
+      "IncMasterRatio": "Meta+=",
+      "Retile": "Meta+Ctrl+T",
+      "Toggle": "Meta+Shift+T"
+    },
+    "Windows": {
+      "BorderColorActive": "#ff89b4fa",
+      "BorderColorInactive": "#cc5c6370",
+      "BorderScope": "all",
+      "FocusFadeDuration": 180,
+      "HideTitleBars": true,
+      "Radius": 10,
+      "ShowBorder": true,
+      "TitleBarScope": "tiled",
+      "Width": 2
+    }
+  },
+  "rules": {
+    "order": [],
+    "upserts": [],
+    "removedIds": []
+  }
+}
+

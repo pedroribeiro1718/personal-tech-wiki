@@ -12,6 +12,8 @@ explain the final design, and keep reusable commands or code beside the article.
 
 - [Install the patched Wallpaper Engine KDE plugin on
   CachyOS](linux/desktop/cachyos-wallpaper-engine-kde-patched.md)
+- [Omarchy-style keyboard tiling on KDE with
+  PlasmaZones](linux/desktop/cachyos-kde-plasmazones-omarchy.md)
 
 ### Networking
 
@@ -26,6 +28,9 @@ explain the final design, and keep reusable commands or code beside the article.
 - [`scripts/flatpak-cold-cache-test.sh`](scripts/flatpak-cold-cache-test.sh) — an
   isolated real-world Flatpak/OSTree download test that does not deploy the
   downloaded runtime.
+- [`examples/plasmazones/omarchy-on-kde-profile.json`](examples/plasmazones/omarchy-on-kde-profile.json)
+  — an importable Dwindle tiling and keyboard-navigation profile for
+  PlasmaZones on KDE.
 
 ## Intended future topics
 
