@@ -22,7 +22,7 @@
     },
     "Tiling.Behavior": {
       "DragBehavior": 1,
-      "FocusFollowsMouse": true,
+      "FocusFollowsMouse": false,
       "FocusNewWindows": true,
       "InsertPosition": 1,
       "KeepFloatingAbove": true,
@@ -69,4 +69,3 @@
     "removedIds": []
   }
 }
-

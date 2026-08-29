@@ -62,7 +62,7 @@ The profile configures:
 - one Dwindle master window;
 - 8 px inner and 12 px outer gaps;
 - a 50% initial split with 5% adjustment steps;
-- focus-follows-mouse and focus-new-windows;
+- keyboard-stable focus with focus-new-windows enabled;
 - insertion after the focused window and drag-to-reorder behavior;
 - hidden title bars for tiled windows;
 - 2 px borders on all windows, including floating windows;
@@ -158,4 +158,3 @@ restored floating state can survive other configuration changes.
 
 Focus each affected window and press `Super` + `T`, then use
 `Super` + `Ctrl` + `T` once to rebuild the Dwindle tree.
-
