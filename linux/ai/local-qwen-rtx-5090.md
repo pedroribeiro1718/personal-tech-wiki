@@ -6,7 +6,7 @@ This is the tested local-agent setup:
 - DFlash speculative decoding, FP8 KV cache, and 122,880-token configured context
 - DeepSeek Harness as the browser UI and agent loop
 - private SearXNG at `http://127.0.0.1:8888`
-- a read-only MCP adapter for web-search tool calls
+- a read-only MCP adapter for web search and public-page snapshots
 - working text, image, and function-tool input
 - no DeepSeek API/search dependency and no automatic startup
 
@@ -89,8 +89,11 @@ response. The custom route therefore declares `input: [text, image]` in
 `bootstrap/harness/settings.yaml`. This exact endpoint was verified with a PNG;
 SGLang returned HTTP 200 and accounted for image tokens.
 
-Search results come from the local SearXNG MCP tool. They provide titles, URLs,
-and snippets; a separate restricted page-fetch tool has not yet been added.
+Search results come from the local SearXNG MCP tool. The companion `fetch_page`
+tool captures size-limited plain text from important results before they are
+cited. It rejects credentials, local/private networks, nonstandard ports,
+binary content, redirect abuse, oversized bodies, and slow responses; it pins
+validated DNS for each request and never executes HTML.
 
 ## Security and backup
 

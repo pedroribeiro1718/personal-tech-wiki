@@ -13,6 +13,7 @@ Captured on 2026-09-03 from the working RTX 5090 setup.
 | SearXNG application | `2026.9.2-05cd77f71` |
 | DeepSeek Harness | `@deepseek-ai/dsh@0.1.1-rc.2` |
 | Harness MCP client | `@deepseek-ai/dsh-mcp-client@0.1.1-rc.2` |
+| Local SearXNG MCP adapter | `1.1.0` |
 | MCP SDK | `@modelcontextprotocol/sdk@2.0.0` |
 | Zod | `4.5.4` |
 

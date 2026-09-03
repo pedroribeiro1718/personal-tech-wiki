@@ -47,9 +47,16 @@ The SearXNG browser interface is available at
 
 ## Adapter
 
-The MCP adapter is started by Harness over stdio. It queries the local
-SearXNG JSON API and exposes one read-only tool:
-`mcp__searxng__web_search`.
+The MCP adapter is started by Harness over stdio. It exposes two read-only
+tools:
+
+- `mcp__searxng__web_search` queries the local SearXNG JSON API.
+- `mcp__searxng__fetch_page` captures size-limited plain text from a public
+  HTTP(S) page so the agent can verify a search result before citing it.
+
+The page tool blocks credentials, private/local networks, nonstandard ports,
+binary content, redirect abuse, oversized bodies, and slow responses. DNS is
+validated and pinned for each request, and HTML is never executed.
 
 See `qwen.compose.yaml` for every inference parameter and `VERSIONS.md` for
 the captured image/model revisions. The model cache itself is large and is
