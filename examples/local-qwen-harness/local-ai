@@ -2,889 +2,359 @@
 set -euo pipefail
 umask 077
 
-SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
-STACK_DIR="$(cd -- "$(dirname -- "${SCRIPT_PATH}")" && pwd)"
-QWEN_CONTAINER="qwen38"
-QWEN_URL="http://127.0.0.1:30000/v1/models"
-QWEN_FULL_CONTAINER="qwen38-full"
-QWEN_FULL_URL="http://127.0.0.1:30000/v1/models"
-QWEN_FULL_PATCH_COMMIT="8558b8ca3bba028f852f4b53167b79b4cd552f93"
-QWEN_FULL_PATCH_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/local-qwen-harness/qwen38-exl3-${QWEN_FULL_PATCH_COMMIT:0:12}"
-QWEN_FULL_PATCH_BASE="https://raw.githubusercontent.com/malaiwah/qwen38-27b-exl3/${QWEN_FULL_PATCH_COMMIT}/tools"
-QWEN_NINFER_CONTAINER="qwen38-ninfer"
-QWEN_NINFER_URL="http://127.0.0.1:30000/v1/models"
-QWEN_NINFER_SOURCE_COMMIT="a140e7ae82a11ed2f370a4d8f2cc16268a3790b8"
-QWEN_NINFER_SOURCE_URL="https://github.com/Neroued/ninfer.git"
-QWEN_NINFER_SOURCE_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/local-qwen-harness/ninfer-${QWEN_NINFER_SOURCE_COMMIT:0:12}"
-QWEN_NINFER_IMAGE="local/qwen-ninfer:${QWEN_NINFER_SOURCE_COMMIT:0:12}"
-QWEN_NINFER_MODEL_REVISION="204e3d92c30d9d05f3300d2f52e443ad1edf6ddf"
-QWEN_NINFER_MODEL_SHA256="bb3360522a06e136e0367f5703414d26272b7285c8a6ab6194135c17dbd81b32"
-QWEN_NINFER_MODEL_SIZE="21492695040"
-QWEN_NINFER_MODEL_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/local-qwen-harness/ninfer-model-${QWEN_NINFER_MODEL_REVISION:0:12}"
-QWEN_NINFER_MODEL_FILE="${QWEN_NINFER_MODEL_DIR}/qwen3_8_27b_nvfp4.ninfer"
-QWEN_NINFER_MODEL_URL="https://huggingface.co/neroued/Qwen3.8-27B-nvfp4-NInfer/resolve/${QWEN_NINFER_MODEL_REVISION}/qwen3_8_27b_nvfp4.ninfer?download=true"
-HARNESS_URL="http://127.0.0.1:3080"
-WORK_HARNESS_URL="http://127.0.0.1:3081"
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+STACK="$(cd -- "$(dirname -- "${SELF}")" && pwd)"
+CACHE="${XDG_CACHE_HOME:-${HOME}/.cache}/local-qwen-harness"
+API="http://127.0.0.1:30000/v1/models"
 DSH_PACKAGE="@deepseek-ai/dsh@0.1.1-rc.2"
-HARNESS_UNIT="local-qwen-harness.service"
-WORK_HARNESS_UNIT="local-qwen-harness-work.service"
 DSH_DIR="${DSH_DIR:-${HOME}/.dsh}"
 WORK_DSH_DIR="${WORK_DSH_DIR:-${HOME}/.dsh-work}"
-HARNESS_SETTINGS="${DSH_DIR}/settings.yaml"
-WORK_HARNESS_SETTINGS="${WORK_DSH_DIR}/settings.yaml"
-WORK_GH_CONFIG_DIR="${GITHUB_WORK_GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME}/.config}/gh-work}"
+GH_DIR="${GITHUB_WORK_GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME}/.config}/gh-work}"
+NINFER_REV="a140e7ae82a11ed2f370a4d8f2cc16268a3790b8"
+NINFER_SRC="${CACHE}/ninfer-${NINFER_REV:0:12}"
+NINFER_IMAGE="local/qwen-ninfer:${NINFER_REV:0:12}"
+EXL3_REV="8558b8ca3bba028f852f4b53167b79b4cd552f93"
+EXL3_DIR="${CACHE}/qwen38-exl3-${EXL3_REV:0:12}"
+UDQ4_DIR="${CACHE}/qwen38-udq4-4ca720788d1e"
 
-start_qwen() {
-  if container_running "${QWEN_FULL_CONTAINER}" || container_running "${QWEN_NINFER_CONTAINER}"; then
-    printf 'Another Qwen recipe is already using the GPU. Run: local-ai stop qwen\n' >&2
-    return 1
-  fi
-  if (( DESKTOP_USE )); then
-    printf 'SGLang is already desktop-qualified; keeping its normal 122,880-token profile.\n'
-  fi
-  docker compose -f "${STACK_DIR}/qwen-sglang-nvfp4-122880.compose.yaml" up -d qwen
+RECIPES=(sglang exl3 ninfer udq4 a3b)
+declare -A COMPOSE SERVICE CONTAINER MODEL NAME CONTEXT DESKTOP VISION ENGINE WEIGHTS KV SPEC REQUIRED
+COMPOSE[sglang]="qwen-sglang-nvfp4-122880.compose.yaml"; SERVICE[sglang]=qwen; CONTAINER[sglang]=qwen38
+MODEL[sglang]=qwen3.8-27b-sglang-nvfp4-122880; NAME[sglang]="Qwen 3.8 27B · SGLang · NVFP4 · 122,880"
+CONTEXT[sglang]=122880; DESKTOP[sglang]=122880; VISION[sglang]=1; ENGINE[sglang]=SGLang; WEIGHTS[sglang]=NVFP4; KV[sglang]=FP8; SPEC[sglang]=DSpark-7; REQUIRED[sglang]=0
+COMPOSE[exl3]="qwen-vllm-exl3-k5k6-262144.compose.yaml"; SERVICE[exl3]=qwen-full; CONTAINER[exl3]=qwen38-full
+MODEL[exl3]=qwen3.8-27b-vllm-exl3-k5k6-262144; NAME[exl3]="Qwen 3.8 27B · vLLM · EXL3 K5/K6 · 262,144"
+CONTEXT[exl3]=262144; DESKTOP[exl3]=155648; VISION[exl3]=1; ENGINE[exl3]=vLLM; WEIGHTS[exl3]="EXL3 K5/K6"; KV[exl3]=FP8; SPEC[exl3]=MTP-3; REQUIRED[exl3]=31140
+COMPOSE[ninfer]="qwen-ninfer-nvfp4-252928.compose.yaml"; SERVICE[ninfer]=qwen-ninfer; CONTAINER[ninfer]=qwen38-ninfer
+MODEL[ninfer]=qwen3.8-27b-ninfer-nvfp4-252928; NAME[ninfer]="Qwen 3.8 27B · NInfer · NVFP4 · 252,928"
+CONTEXT[ninfer]=252928; DESKTOP[ninfer]=172032; VISION[ninfer]=0; ENGINE[ninfer]=NInfer; WEIGHTS[ninfer]=NVFP4; KV[ninfer]=INT8; SPEC[ninfer]=MTP-3; REQUIRED[ninfer]=31500
+COMPOSE[udq4]="qwen-llamacpp-ud-q4-k-xl-262144.compose.yaml"; SERVICE[udq4]=qwen-udq4; CONTAINER[udq4]=qwen38-udq4
+MODEL[udq4]=qwen3.8-27b-llamacpp-ud-q4-k-xl-262144; NAME[udq4]="Qwen 3.8 27B · llama.cpp · UD-Q4_K_XL · 262,144"
+CONTEXT[udq4]=262144; DESKTOP[udq4]=196608; VISION[udq4]=1; ENGINE[udq4]=llama.cpp; WEIGHTS[udq4]=UD-Q4_K_XL; KV[udq4]=Q8_0; SPEC[udq4]=MTP-3; REQUIRED[udq4]=28200
+COMPOSE[a3b]="qwen-ninfer-groupwise-int-262144.compose.yaml"; SERVICE[a3b]=qwen-a3b; CONTAINER[a3b]=qwen36-a3b
+MODEL[a3b]=qwen3.6-35b-a3b-ninfer-groupwise-int-262144; NAME[a3b]="Qwen 3.6 35B-A3B · NInfer · groupwise-int · 262,144"
+CONTEXT[a3b]=262144; DESKTOP[a3b]=245760; VISION[a3b]=1; ENGINE[a3b]=NInfer; WEIGHTS[a3b]=groupwise-int; KV[a3b]=INT8; SPEC[a3b]=MTP-3; REQUIRED[a3b]=29000
+
+die() { printf '%s\n' "$*" >&2; exit 1; }
+running() { [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null || true)" == true ]]; }
+valid_recipe() { [[ -n "${COMPOSE[${1:-}]:-}" ]] || die "Unknown recipe: ${1:-}; use: ${RECIPES[*]}"; }
+requested() { local x; for x in "${TARGETS[@]}"; do [[ "$x" == "$1" || "$x" == all ]] && return; done; return 1; }
+
+compose() {
+  local recipe="$1"; shift
+  case "$recipe" in
+    exl3) QWEN_FULL_PATCH_DIR="$EXL3_DIR" docker compose -f "$STACK/${COMPOSE[$recipe]}" "$@" ;;
+    ninfer) QWEN_NINFER_MODEL_FILE="$NINFER38_FILE" docker compose -f "$STACK/${COMPOSE[$recipe]}" "$@" ;;
+    udq4) QWEN_MODEL_DIR="$UDQ4_DIR" docker compose -f "$STACK/${COMPOSE[$recipe]}" "$@" ;;
+    a3b) QWEN_MODEL_FILE="$A3B_FILE" docker compose -f "$STACK/${COMPOSE[$recipe]}" "$@" ;;
+    *) docker compose -f "$STACK/${COMPOSE[$recipe]}" "$@" ;;
+  esac
 }
 
-container_running() {
-  [[ "$(docker container inspect --format '{{.State.Running}}' "$1" 2>/dev/null || true)" == "true" ]]
-}
-
-wait_for_model() {
-  local label="$1"
-  local url="$2"
-  local attempts="$3"
-  local container_name="$4"
-
-  printf 'Waiting for %s to become ready' "${label}"
-  for _ in $(seq 1 "${attempts}"); do
-    if curl -fsS --max-time 2 "${url}" >/dev/null 2>&1; then
-      printf '\n%s is ready: %s\n' "${label}" "${url}"
-      return 0
-    fi
-    if ! container_running "${container_name}"; then
-      printf '\n%s stopped before becoming ready. Recent container log:\n' "${label}" >&2
-      docker logs --tail 40 "${container_name}" >&2 || true
-      return 1
-    fi
-    printf '.'
-    sleep 2
-  done
-  printf '\n%s did not become ready. Inspect: docker logs %s\n' \
-    "${label}" "${container_name}" >&2
-  return 1
-}
-
-wait_for_qwen() {
-  wait_for_model "Qwen" "${QWEN_URL}" 180 "${QWEN_CONTAINER}"
-}
-
-verify_full_patches() {
-  local patch_root="$1"
-  local failed=0
-
-  printf '%s  %s\n' \
-    2df9d0799fd323798cead1edb773cab556c94798eec263ee03ded35408c6e4ee \
-    "${patch_root}/tools/vllm-exl3-prefill-dispatch.py" | sha256sum -c - >/dev/null || failed=1
-  printf '%s  %s\n' \
-    04d2bd587b37142f4f55a8d00b9f8c907309490168cb7fcdfde450531df2c9e7 \
-    "${patch_root}/tools/vllm-qwen3_5-embed-quant-config.py" | sha256sum -c - >/dev/null || failed=1
-  printf '%s  %s\n' \
-    0090dc131f0eaf439b24d50baf4def9f10b052864c76e695053d64f66b274bab \
-    "${patch_root}/tools/vllm-qwen3_5_mtp-embed-quant-config.py" | sha256sum -c - >/dev/null || failed=1
-  printf '%s  %s\n' \
-    b431c1066dfee3ed56bfa7e71cc8606f9afadc300f22d7fc542c43835d1b22bf \
-    "${patch_root}/tools/vllm-mamba-align-scheduler.py" | sha256sum -c - >/dev/null || failed=1
-  return "${failed}"
-}
-
-ensure_full_patches() {
-  local temp_dir
-  local filename
-
-  if verify_full_patches "${QWEN_FULL_PATCH_DIR}" 2>/dev/null; then
-    return 0
-  fi
-  if [[ -e "${QWEN_FULL_PATCH_DIR}" ]]; then
-    printf 'Existing full-context patch cache failed verification: %s\n' "${QWEN_FULL_PATCH_DIR}" >&2
-    printf 'Move it aside, then run: local-ai prepare exl3\n' >&2
-    return 1
-  fi
-
-  mkdir -p "$(dirname -- "${QWEN_FULL_PATCH_DIR}")"
-  temp_dir="$(mktemp -d "$(dirname -- "${QWEN_FULL_PATCH_DIR}")/.qwen-full-patches.XXXXXX")"
-  mkdir -p "${temp_dir}/tools"
-  for filename in \
-    vllm-exl3-prefill-dispatch.py \
-    vllm-qwen3_5-embed-quant-config.py \
-    vllm-qwen3_5_mtp-embed-quant-config.py \
-    vllm-mamba-align-scheduler.py; do
-    if ! curl -fL --retry 3 --output "${temp_dir}/tools/${filename}" \
-      "${QWEN_FULL_PATCH_BASE}/${filename}"; then
-      rm -rf -- "${temp_dir}"
-      return 1
-    fi
-  done
-  if ! verify_full_patches "${temp_dir}"; then
-    rm -rf -- "${temp_dir}"
-    printf 'Downloaded full-context patches failed checksum verification.\n' >&2
-    return 1
-  fi
-  mv -- "${temp_dir}" "${QWEN_FULL_PATCH_DIR}"
-  printf 'Verified full-context runtime overlays at %s\n' "${QWEN_FULL_PATCH_DIR}"
-}
-
-full_compose() {
-  QWEN_FULL_PATCH_DIR="${QWEN_FULL_PATCH_DIR}" \
-    docker compose -f "${STACK_DIR}/qwen-vllm-exl3-k5k6-262144.compose.yaml" "$@"
-}
-
-ensure_full_image() {
-  full_compose pull --policy missing qwen-full
-}
-
-prepare_qwen_full() {
-  ensure_full_patches
-  docker volume inspect qwen38-full-hf-cache >/dev/null 2>&1 || \
-    docker volume create qwen38-full-hf-cache >/dev/null
-  ensure_full_image
-  printf 'exl3 recipe is prepared. Model weights download on first start.\n'
-}
-
-check_qwen_full_memory() {
-  local total_mib
-  local free_mib
-  local required_mib
-
-  if ! IFS=, read -r total_mib free_mib < <(
-    nvidia-smi --query-gpu=memory.total,memory.free --format=csv,noheader,nounits 2>/dev/null
-  ); then
-    printf 'Cannot query the NVIDIA GPU; qwen-full startup was not attempted.\n' >&2
-    return 1
-  fi
-  if (( DESKTOP_USE )); then
-    required_mib=$((total_mib * 850 / 1000))
+download() {
+  local url="$1" file="$2" size="$3" sha="$4" current=0
+  if [[ -f "$file" ]] && [[ "$(stat -c %s "$file")" == "$size" ]] &&
+    printf '%s  %s\n' "$sha" "$file" | sha256sum -c - >/dev/null; then return; fi
+  [[ -f "$file" ]] && current="$(stat -c %s "$file")"
+  (( current < size )) || die "Invalid artifact at $file; move it aside and retry."
+  mkdir -p "$(dirname -- "$file")"
+  printf 'Downloading %s (%s/%s bytes)\n' "$(basename -- "$file")" "$current" "$size"
+  if command -v aria2c >/dev/null; then
+    aria2c -c --auto-file-renaming=false --file-allocation=none -x4 -s4 \
+      --dir="$(dirname -- "$file")" --out="$(basename -- "$file")" "$url"
   else
-    required_mib=$((total_mib * 955 / 1000))
+    curl -fL --retry 3 -C - -o "$file" "$url"
   fi
-  if (( free_mib < required_mib )); then
-    printf 'exl3 needs about %s MiB free for the selected memory profile; only %s MiB is free.\n' \
-      "${required_mib}" "${free_mib}" >&2
-    printf 'Close GPU applications and stop the graphical session before retrying; startup was not attempted.\n' >&2
-    return 1
-  fi
+  [[ "$(stat -c %s "$file")" == "$size" ]] || die "Wrong size: $file"
+  printf '%s  %s\n' "$sha" "$file" | sha256sum -c - >/dev/null || die "Checksum failed: $file"
 }
 
-start_qwen_full() {
-  if container_running "${QWEN_CONTAINER}" || container_running "${QWEN_NINFER_CONTAINER}"; then
-    printf 'Another Qwen recipe is already using the GPU. Run: local-ai stop qwen\n' >&2
-    return 1
-  fi
-  ensure_full_patches
-  ensure_full_image
-  check_qwen_full_memory
-  if (( DESKTOP_USE )); then
-    printf 'Desktop-use profile: exl3, 155,648 context, about 4.9-GiB total VRAM reserve.\n'
-    QWEN_FULL_PATCH_DIR="${QWEN_FULL_PATCH_DIR}" \
-    QWEN_CONTEXT_LENGTH=155648 \
-    QWEN_PREFILL_CHUNK=1024 \
-    QWEN_GPU_MEMORY_UTILIZATION=0.85 \
-    QWEN_MAX_PIXELS=4194304 \
-      docker compose -f "${STACK_DIR}/qwen-vllm-exl3-k5k6-262144.compose.yaml" up -d qwen-full
+NINFER38_FILE="${CACHE}/ninfer-model-204e3d92c30d/qwen3_8_27b_nvfp4.ninfer"
+A3B_FILE="${CACHE}/ninfer-model-3d960f7b670e/qwen3_6_35b_a3b.ninfer"
+prepare_ninfer_artifact() {
+  ensure_ninfer_image
+  if [[ "$1" == ninfer ]]; then
+    download "https://huggingface.co/neroued/Qwen3.8-27B-nvfp4-NInfer/resolve/204e3d92c30d9d05f3300d2f52e443ad1edf6ddf/qwen3_8_27b_nvfp4.ninfer?download=true" \
+      "$NINFER38_FILE" 21492695040 bb3360522a06e136e0367f5703414d26272b7285c8a6ab6194135c17dbd81b32
   else
-    full_compose up -d qwen-full
+    download "https://huggingface.co/neroued/Qwen3.6-35B-A3B-NInfer/resolve/3d960f7b670ea706105571a822334a1f09759271/qwen3_6_35b_a3b.ninfer?download=true" \
+      "$A3B_FILE" 22783246080 1fb9ea0b5b8561e49d9604115ec89e5d9f2b6f6434e32c37c57fffd480a325d2
   fi
-  wait_for_model "Qwen vLLM/EXL3" "${QWEN_FULL_URL}" 450 "${QWEN_FULL_CONTAINER}"
-}
-
-ensure_ninfer_source() {
-  local temp_dir
-  local source_head
-  local source_status
-
-  if [[ -d "${QWEN_NINFER_SOURCE_DIR}/.git" ]]; then
-    source_head="$(git -C "${QWEN_NINFER_SOURCE_DIR}" rev-parse HEAD 2>/dev/null || true)"
-    source_status="$(git -C "${QWEN_NINFER_SOURCE_DIR}" status --porcelain --untracked-files=normal 2>/dev/null || true)"
-    if [[ "${source_head}" == "${QWEN_NINFER_SOURCE_COMMIT}" && -z "${source_status}" ]]; then
-      return 0
-    fi
-    printf 'Existing NInfer source cache is modified or not at the pinned revision: %s\n' \
-      "${QWEN_NINFER_SOURCE_DIR}" >&2
-    printf 'Move it aside, then run: local-ai prepare ninfer\n' >&2
-    return 1
-  fi
-  if [[ -e "${QWEN_NINFER_SOURCE_DIR}" ]]; then
-    printf 'NInfer source cache path exists but is not a Git checkout: %s\n' \
-      "${QWEN_NINFER_SOURCE_DIR}" >&2
-    return 1
-  fi
-
-  mkdir -p "$(dirname -- "${QWEN_NINFER_SOURCE_DIR}")"
-  temp_dir="$(mktemp -d "$(dirname -- "${QWEN_NINFER_SOURCE_DIR}")/.ninfer-source.XXXXXX")"
-  if ! git clone --filter=blob:none --no-checkout \
-    "${QWEN_NINFER_SOURCE_URL}" "${temp_dir}/source"; then
-    rm -rf -- "${temp_dir}"
-    return 1
-  fi
-  if ! git -C "${temp_dir}/source" checkout --detach "${QWEN_NINFER_SOURCE_COMMIT}"; then
-    rm -rf -- "${temp_dir}"
-    return 1
-  fi
-  mv -- "${temp_dir}/source" "${QWEN_NINFER_SOURCE_DIR}"
-  rmdir -- "${temp_dir}"
-  printf 'Pinned NInfer source at %s\n' "${QWEN_NINFER_SOURCE_DIR}"
-}
-
-verify_ninfer_model() {
-  [[ -f "${QWEN_NINFER_MODEL_FILE}" ]] || return 1
-  [[ "$(stat -c '%s' "${QWEN_NINFER_MODEL_FILE}")" == "${QWEN_NINFER_MODEL_SIZE}" ]] || return 1
-  printf '%s  %s\n' "${QWEN_NINFER_MODEL_SHA256}" "${QWEN_NINFER_MODEL_FILE}" | \
-    sha256sum -c - >/dev/null
-}
-
-ensure_ninfer_model() {
-  local current_size=0
-
-  if verify_ninfer_model; then
-    return 0
-  fi
-  if [[ -f "${QWEN_NINFER_MODEL_FILE}" ]]; then
-    current_size="$(stat -c '%s' "${QWEN_NINFER_MODEL_FILE}")"
-    if (( current_size >= QWEN_NINFER_MODEL_SIZE )); then
-      printf 'Existing NInfer artifact failed size or checksum verification: %s\n' \
-        "${QWEN_NINFER_MODEL_FILE}" >&2
-      printf 'Move it aside, then run: local-ai prepare ninfer\n' >&2
-      return 1
-    fi
-    printf 'Resuming NInfer model download at %s of %s bytes.\n' \
-      "${current_size}" "${QWEN_NINFER_MODEL_SIZE}"
-  fi
-
-  mkdir -p "${QWEN_NINFER_MODEL_DIR}"
-  if command -v aria2c >/dev/null 2>&1; then
-    aria2c --continue=true --auto-file-renaming=false --file-allocation=none \
-      --max-connection-per-server=4 --split=4 \
-      --dir="${QWEN_NINFER_MODEL_DIR}" --out="$(basename -- "${QWEN_NINFER_MODEL_FILE}")" \
-      "${QWEN_NINFER_MODEL_URL}"
-  else
-    curl -fL --retry 3 --continue-at - --output "${QWEN_NINFER_MODEL_FILE}" \
-      "${QWEN_NINFER_MODEL_URL}"
-  fi
-  if ! verify_ninfer_model; then
-    printf 'Downloaded NInfer artifact failed size or checksum verification: %s\n' \
-      "${QWEN_NINFER_MODEL_FILE}" >&2
-    return 1
-  fi
-  printf 'Verified NInfer model artifact at %s\n' "${QWEN_NINFER_MODEL_FILE}"
 }
 
 ensure_ninfer_image() {
-  local image_revision
-
-  image_revision="$(docker image inspect --format \
-    '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
-    "${QWEN_NINFER_IMAGE}" 2>/dev/null || true)"
-  if [[ "${image_revision}" == "${QWEN_NINFER_SOURCE_COMMIT}" ]]; then
-    return 0
-  fi
-  ensure_ninfer_source
-  docker build \
-    --build-arg "NINFER_SOURCE_REVISION=${QWEN_NINFER_SOURCE_COMMIT}" \
-    --file "${STACK_DIR}/ninfer.Dockerfile" \
-    --tag "${QWEN_NINFER_IMAGE}" \
-    "${QWEN_NINFER_SOURCE_DIR}"
-}
-
-ninfer_compose() {
-  QWEN_NINFER_MODEL_FILE="${QWEN_NINFER_MODEL_FILE}" \
-    docker compose -f "${STACK_DIR}/qwen-ninfer-nvfp4-252928.compose.yaml" "$@"
-}
-
-prepare_qwen_ninfer() {
-  ensure_ninfer_source
-  ensure_ninfer_image
-  ensure_ninfer_model
-  printf 'ninfer recipe is prepared. Nothing was started.\n'
-}
-
-check_qwen_ninfer_memory() {
-  local total_mib
-  local free_mib
-  local required_mib
-
-  if ! IFS=, read -r total_mib free_mib < <(
-    nvidia-smi --query-gpu=memory.total,memory.free --format=csv,noheader,nounits 2>/dev/null
-  ); then
-    printf 'Cannot query the NVIDIA GPU; qwen-ninfer startup was not attempted.\n' >&2
-    return 1
-  fi
-  if (( DESKTOP_USE )); then
-    required_mib=27620
+  local found
+  found="$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$NINFER_IMAGE" 2>/dev/null || true)"
+  [[ "$found" == "$NINFER_REV" ]] && return
+  if [[ -d "$NINFER_SRC/.git" ]]; then
+    [[ "$(git -C "$NINFER_SRC" rev-parse HEAD)" == "$NINFER_REV" ]] &&
+      [[ -z "$(git -C "$NINFER_SRC" status --porcelain)" ]] ||
+      die "NInfer cache is not the clean pinned revision: $NINFER_SRC"
   else
-    required_mib=$((total_mib - 1080))
+    [[ ! -e "$NINFER_SRC" ]] || die "Move aside invalid cache: $NINFER_SRC"
+    mkdir -p "$CACHE"
+    local tmp; tmp="$(mktemp -d "$CACHE/.ninfer.XXXXXX")"
+    git clone --filter=blob:none --no-checkout https://github.com/Neroued/ninfer.git "$tmp/src"
+    git -C "$tmp/src" checkout --detach "$NINFER_REV"
+    mv "$tmp/src" "$NINFER_SRC"; rmdir "$tmp"
   fi
-  if (( free_mib < required_mib )); then
-    printf 'ninfer needs approximately %s MiB free for the selected memory profile; only %s MiB is free.\n' \
-      "${required_mib}" "${free_mib}" >&2
-    printf 'Close GPU applications and stop the graphical session before retrying; startup was not attempted.\n' >&2
-    return 1
-  fi
+  docker build --build-arg "NINFER_SOURCE_REVISION=$NINFER_REV" \
+    -f "$STACK/ninfer.Dockerfile" -t "$NINFER_IMAGE" "$NINFER_SRC"
 }
 
-start_qwen_ninfer() {
-  if container_running "${QWEN_CONTAINER}" || container_running "${QWEN_FULL_CONTAINER}"; then
-    printf 'Another Qwen recipe is already using the GPU. Run: local-ai stop qwen\n' >&2
-    return 1
+prepare_exl3() {
+  local base="https://raw.githubusercontent.com/malaiwah/qwen38-27b-exl3/$EXL3_REV/tools" item file sha
+  local -a items=(
+    "vllm-exl3-prefill-dispatch.py:2df9d0799fd323798cead1edb773cab556c94798eec263ee03ded35408c6e4ee"
+    "vllm-qwen3_5-embed-quant-config.py:04d2bd587b37142f4f55a8d00b9f8c907309490168cb7fcdfde450531df2c9e7"
+    "vllm-qwen3_5_mtp-embed-quant-config.py:0090dc131f0eaf439b24d50baf4def9f10b052864c76e695053d64f66b274bab"
+    "vllm-mamba-align-scheduler.py:b431c1066dfee3ed56bfa7e71cc8606f9afadc300f22d7fc542c43835d1b22bf")
+  mkdir -p "$EXL3_DIR/tools"
+  for item in "${items[@]}"; do
+    file="${item%%:*}"; sha="${item#*:}"
+    if ! printf '%s  %s\n' "$sha" "$EXL3_DIR/tools/$file" | sha256sum -c - >/dev/null 2>&1; then
+      curl -fL --retry 3 -o "$EXL3_DIR/tools/$file.part" "$base/$file"
+      printf '%s  %s\n' "$sha" "$EXL3_DIR/tools/$file.part" | sha256sum -c - >/dev/null
+      mv "$EXL3_DIR/tools/$file.part" "$EXL3_DIR/tools/$file"
+    fi
+  done
+  compose exl3 pull --policy missing qwen-full
+}
+
+prepare_udq4() {
+  local base="https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/4ca720788d1e01f1bff70c033e0d0028fd02e502"
+  download "$base/Qwen3.8-27B-UD-Q4_K_XL.gguf?download=true" "$UDQ4_DIR/Qwen3.8-27B-UD-Q4_K_XL.gguf" 17559178144 3f227079003add2511437e5b1e94812e363385225bf6a9b47b0054a72bc8b01e
+  download "$base/mmproj-BF16.gguf?download=true" "$UDQ4_DIR/mmproj-BF16.gguf" 931146432 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
+  download "$base/MTP/mtp-Qwen3.8-27B-Q4_0.gguf?download=true" "$UDQ4_DIR/mtp-Qwen3.8-27B-Q4_0.gguf" 1369590656 50d9ce5a6da381bbcfb31061cf73df94a90e6faf8efeddee379a9cb8f1501c6e
+  compose udq4 pull --policy missing qwen-udq4
+}
+
+prepare() {
+  local recipe="$1"; valid_recipe "$recipe"
+  case "$recipe" in
+    sglang) compose "$recipe" pull qwen ;;
+    exl3) prepare_exl3 ;;
+    ninfer|a3b) prepare_ninfer_artifact "$recipe" ;;
+    udq4) prepare_udq4 ;;
+  esac
+  printf '%s is prepared; nothing was started.\n' "$recipe"
+}
+
+preflight_memory() {
+  local recipe="$1" need="${REQUIRED[$recipe]}" total free
+  (( DESKTOP_USE )) && case "$recipe" in exl3) need=27700;; ninfer) need=27620;; udq4|a3b) need=27000;; esac
+  (( need == 0 )) && return
+  IFS=, read -r total free < <(nvidia-smi --query-gpu=memory.total,memory.free --format=csv,noheader,nounits) ||
+    die "Cannot query NVIDIA memory."
+  (( free >= need )) || die "$recipe needs about $need MiB free; only $free MiB is free."
+}
+
+wait_model() {
+  local recipe="$1" i
+  printf 'Waiting for %s' "${NAME[$recipe]}"
+  for i in {1..450}; do
+    curl -fsS --max-time 2 "$API" >/dev/null 2>&1 && { printf '\nReady: %s\n' "$API"; return; }
+    running "${CONTAINER[$recipe]}" || { printf '\n'; docker logs --tail 60 "${CONTAINER[$recipe]}" >&2 || true; return 1; }
+    (( i % 15 == 0 )) && printf ' %ss' "$((i*2))" || printf '.'
+    sleep 2
+  done
+  die "Startup timed out; run: local-ai logs qwen"
+}
+
+start_model() {
+  local recipe="$1" other context mmproj=--no-mmproj-offload
+  context="${CONTEXT[$recipe]}"; (( DESKTOP_USE )) && context="${DESKTOP[$recipe]}"
+  (( DESKTOP_USE )) && mmproj=--mmproj-offload
+  for other in "${RECIPES[@]}"; do
+    [[ "$other" == "$recipe" ]] || ! running "${CONTAINER[$other]}" ||
+      die "${NAME[$other]} is already running; use: local-ai stop qwen"
+  done
+  if running "${CONTAINER[$recipe]}"; then printf '%s is already running.\n' "${NAME[$recipe]}"; sync_model "$recipe" "$context"; return; fi
+  prepare "$recipe"; preflight_memory "$recipe"
+  printf 'Starting %s with %s tokens%s.\n' "${NAME[$recipe]}" "$context" "$([[ $DESKTOP_USE == 1 ]] && printf ' (desktop-use)')"
+  QWEN_CONTEXT_LENGTH="$context" QWEN_KV_CAPACITY="$context" QWEN_MMPROJ_MODE="$mmproj" compose "$recipe" up -d "${SERVICE[$recipe]}"
+  wait_model "$recipe"; sync_model "$recipe" "$context"
+}
+
+sync_settings() {
+  local file="$1" id="$2" name="$3" context="$4" vision="$5" tmp
+  [[ -f "$file" ]] || return
+  tmp="$(mktemp "$file.local-ai.XXXXXX")"
+  awk -v id="$id" -v name="$name" -v context="$context" -v vision="$vision" '
+    function model(){print "      models:"; print "        - id: " id; print "          name: " name;
+      print "          contextWindow: " context; print "          input:"; print "            - text";
+      if(vision) print "            - image"}
+    {s=$0; sub(/^[[:space:]]*/, "", s)
+     if(!done && $0=="      models:"){model(); done=1; skip=1; next}
+     if(skip){if($0=="agent-default-model:"){skip=0; def=1; print}; next}
+     if($0=="agent-default-model:") def=1
+     if(def && s~/^model:[[:space:]]*/){match($0,/^[[:space:]]*/); print substr($0,1,RLENGTH) "model: " id; set=1; def=0; next}
+     print} END{if(done!=1 || set!=1) exit 42}' "$file" >"$tmp" ||
+    { rm -f "$tmp"; die "Could not update $file; run ./bootstrap.sh"; }
+  chmod --reference="$file" "$tmp" 2>/dev/null || chmod 600 "$tmp"; mv "$tmp" "$file"
+}
+
+sync_model() {
+  local recipe="$1" context="${2:-${CONTEXT[$1]}}"
+  sync_settings "$DSH_DIR/settings.yaml" "${MODEL[$recipe]}" "${NAME[$recipe]}" "$context" "${VISION[$recipe]}"
+  sync_settings "$WORK_DSH_DIR/settings.yaml" "${MODEL[$recipe]}" "${NAME[$recipe]}" "$context" "${VISION[$recipe]}"
+}
+
+sync_from_api() {
+  local id context recipe
+  read -r id context < <(curl -fsS --max-time 2 "$API" | python3 -c 'import json,sys;m=json.load(sys.stdin)["data"][0];print(m["id"],m.get("max_model_len",""))' 2>/dev/null) || return 0
+  for recipe in "${RECIPES[@]}"; do [[ "$id" == "${MODEL[$recipe]}" ]] && { sync_model "$recipe" "$context"; return; }; done
+}
+
+harness() {
+  local action="$1" home unit url port workspace
+  if (( WORK_MODE )); then home="$WORK_DSH_DIR"; unit=local-qwen-harness-work.service; url=http://127.0.0.1:3081; workspace="${LOCAL_AI_WORKSPACE:-$PWD}"
+  else home="$DSH_DIR"; unit=local-qwen-harness.service; url=http://127.0.0.1:3080; workspace="$HOME"; fi
+  port="${url##*:}"
+  if [[ "$action" == stop ]]; then
+    systemctl --user is-active --quiet "$unit" && systemctl --user stop "$unit" || true
+    printf 'Harness stopped: %s\n' "$url"; return
   fi
-  ensure_ninfer_source
-  ensure_ninfer_image
-  ensure_ninfer_model
-  check_qwen_ninfer_memory
-  if (( DESKTOP_USE )); then
-    printf 'Desktop-use profile: ninfer, 172,032 context, about 5.0-GiB total VRAM reserve.\n'
-    QWEN_NINFER_MODEL_FILE="${QWEN_NINFER_MODEL_FILE}" \
-    QWEN_CONTEXT_LENGTH=172032 \
-    QWEN_KV_CAPACITY=172032 \
-    QWEN_MAX_CONCURRENCY=1 \
-    QWEN_PREFILL_CHUNK=512 \
-      docker compose -f "${STACK_DIR}/qwen-ninfer-nvfp4-252928.compose.yaml" up -d qwen-ninfer
+  systemctl --user is-active --quiet "$unit" && { printf 'Harness already running: %s\n' "$url"; return; }
+  sync_from_api; systemctl --user reset-failed "$unit" >/dev/null 2>&1 || true
+  systemd-run --user --quiet --collect --unit="$unit" --property=Type=exec \
+    --property=KillMode=control-group --property=TimeoutStopSec=15 --working-directory="$workspace" \
+    --setenv="DSH_HOME=$home" --setenv="QWEN_LOCAL_API_KEY=${QWEN_LOCAL_API_KEY:-local-no-key}" \
+    "$(command -v pnpm)" dlx "$DSH_PACKAGE" web --port "$port" --no-open
+  for _ in {1..30}; do curl -fsS --max-time 2 "$url" >/dev/null 2>&1 && { printf 'Harness ready: %s\n' "$url"; return; }; sleep 1; done
+  journalctl --user -u "$unit" -n 40 --no-pager >&2 || true; return 1
+}
+
+stop_models() {
+  local recipe
+  for recipe in "${RECIPES[@]}"; do
+    [[ -z "$SELECTED_RECIPE" || "$recipe" == "$SELECTED_RECIPE" ]] || continue
+    running "${CONTAINER[$recipe]}" && docker stop --timeout 60 "${CONTAINER[$recipe]}" >/dev/null
+  done
+  printf 'Selected Qwen model allocations released.\n'
+  return 0
+}
+
+service_targets() {
+  local action="$1" recipe="$2"
+  if [[ "$action" == start ]]; then
+    requested searxng && docker compose -f "$STACK/compose.yaml" up -d searxng
+    requested qwen && start_model "$recipe"
+    requested harness && harness start
   else
-    ninfer_compose up -d qwen-ninfer
+    requested harness && harness stop
+    requested qwen && stop_models
+    requested searxng && { docker compose -f "$STACK/compose.yaml" stop searxng >/dev/null; printf 'SearXNG stopped.\n'; }
   fi
-  wait_for_model "Qwen NInfer" "${QWEN_NINFER_URL}" 450 "${QWEN_NINFER_CONTAINER}"
-}
-
-prepare_qwen_sglang() {
-  docker volume inspect qwen38-hf-cache >/dev/null 2>&1 || \
-    docker volume create qwen38-hf-cache >/dev/null
-  docker compose -f "${STACK_DIR}/qwen-sglang-nvfp4-122880.compose.yaml" pull qwen
-  printf 'sglang recipe is prepared. Nothing was started.\n'
-}
-
-start_harness_service() {
-  local label="$1" url="$2" unit="$3" dsh_home="$4" workspace="$5"
-  local pnpm_bin port="${url##*:}"
-
-  if systemctl --user is-active --quiet "${unit}"; then
-    printf '%s is already running: %s\n' "${label}" "${url}"
-    return 0
-  fi
-
-  if curl -fsS --max-time 2 "${url}" >/dev/null 2>&1; then
-    printf 'Port %s already has an unmanaged listener; refusing to start a duplicate.\n' "${port}" >&2
-    return 1
-  fi
-
-  pnpm_bin="$(command -v pnpm)"
-  sync_harness_from_api || true
-  systemctl --user reset-failed "${unit}" >/dev/null 2>&1 || true
-  printf 'Starting %s in the background: %s\n' "${label}" "${url}"
-  systemd-run --user --quiet --collect \
-    --unit="${unit}" \
-    --property=Type=exec \
-    --property=KillMode=control-group \
-    --property=TimeoutStopSec=15 \
-    --working-directory="${workspace}" \
-    --setenv="DSH_HOME=${dsh_home}" \
-    --setenv="QWEN_LOCAL_API_KEY=${QWEN_LOCAL_API_KEY:-local-no-key}" \
-    "${pnpm_bin}" dlx "${DSH_PACKAGE}" web --port "${port}" --no-open
-
-  for _ in $(seq 1 30); do
-    if ! systemctl --user is-active --quiet "${unit}"; then
-      printf '%s exited during startup. Recent log output:\n' "${label}" >&2
-      journalctl --user -u "${unit}" -n 40 --no-pager >&2 || true
-      return 1
-    fi
-    if curl -fsS --max-time 2 "${url}" >/dev/null 2>&1; then
-      printf '%s is ready.\n' "${label}"
-      return 0
-    fi
-    sleep 1
-  done
-
-  printf '%s did not become ready within 30 seconds.\n' "${label}" >&2
-  return 1
-}
-
-start_harness() {
-  start_harness_service "Harness" "${HARNESS_URL}" "${HARNESS_UNIT}" "${DSH_DIR}" "${HOME}"
-}
-
-start_work_harness() {
-  start_harness_service "Work Harness" "${WORK_HARNESS_URL}" "${WORK_HARNESS_UNIT}" \
-    "${WORK_DSH_DIR}" "${LOCAL_AI_WORKSPACE:-${PWD}}"
-}
-
-sync_harness_model() {
-  local recipe="$1"
-  local active_context="${2:-}"
-  local active_id
-  local active_name
-  local active_vision
-  local settings_file
-
-  case "${recipe}" in
-    sglang)
-      active_id='qwen3.8-27b-sglang-nvfp4-122880'
-      active_name='Qwen 3.8 27B · SGLang · NVFP4 · 122,880'
-      active_context="${active_context:-122880}"
-      active_vision=1
-      ;;
-    exl3)
-      active_id='qwen3.8-27b-vllm-exl3-k5k6-262144'
-      active_name='Qwen 3.8 27B · vLLM · EXL3 K5/K6 · 262,144'
-      active_context="${active_context:-$(( DESKTOP_USE ? 155648 : 262144 ))}"
-      active_vision=1
-      ;;
-    ninfer)
-      active_id='qwen3.8-27b-ninfer-nvfp4-252928'
-      active_name='Qwen 3.8 27B · NInfer · NVFP4 · 252,928'
-      active_context="${active_context:-$(( DESKTOP_USE ? 172032 : 252928 ))}"
-      active_vision=0
-      ;;
-  esac
-
-  for settings_file in "${HARNESS_SETTINGS}" "${WORK_HARNESS_SETTINGS}"; do
-    [[ -f "${settings_file}" ]] || continue
-    sync_harness_settings "${settings_file}" "${active_id}" "${active_name}" \
-      "${active_context}" "${active_vision}"
-  done
-  printf 'Harness catalogs synchronized for %s only (%s tokens).\n' \
-    "${recipe}" "${active_context}"
-}
-
-sync_harness_from_api() {
-  local model_id context recipe
-  read -r model_id context < <(
-    curl -fsS --max-time 2 "${QWEN_URL}" 2>/dev/null | python3 -c \
-      'import json,sys; m=json.load(sys.stdin)["data"][0]; print(m["id"], m.get("max_model_len", ""))' 2>/dev/null
-  ) || return 0
-  case "${model_id}" in
-    *-sglang-*) recipe=sglang ;;
-    *-vllm-exl3-*) recipe=exl3 ;;
-    *-ninfer-*) recipe=ninfer ;;
-    *) return 0 ;;
-  esac
-  [[ "${context}" =~ ^[0-9]+$ ]] || context=""
-  sync_harness_model "${recipe}" "${context}"
-}
-
-sync_harness_settings() {
-  local settings_file="$1" active_id="$2" active_name="$3" active_context="$4" active_vision="$5"
-  local temp_settings
-
-  temp_settings="$(mktemp "${settings_file}.local-ai.XXXXXX")"
-  if ! awk \
-    -v active_id="${active_id}" \
-    -v active_name="${active_name}" \
-    -v active_context="${active_context}" \
-    -v active_vision="${active_vision}" '
-      function print_model() {
-        print "      models:"
-        print "        - id: " active_id
-        print "          name: " active_name
-        print "          contextWindow: " active_context
-        print "          input:"
-        print "            - text"
-        if (active_vision) print "            - image"
-      }
-      {
-        stripped = $0
-        sub(/^[[:space:]]*/, "", stripped)
-
-        if (!models_done && $0 == "      models:") {
-          print_model()
-          models_done++
-          skipping_models = 1
-          next
-        }
-        if (skipping_models) {
-          if ($0 == "agent-default-model:") {
-            skipping_models = 0
-            in_default = 1
-            print
-          }
-          next
-        }
-        if ($0 == "agent-default-model:") in_default = 1
-        if (in_default && stripped ~ /^model:[[:space:]]*/) {
-          match($0, /^[[:space:]]*/)
-          print substr($0, 1, RLENGTH) "model: " active_id
-          default_done++
-          in_default = 0
-          next
-        }
-        print
-      }
-      END {
-        if (models_done != 1 || default_done != 1) exit 42
-      }
-    ' "${settings_file}" >"${temp_settings}"; then
-    rm -f -- "${temp_settings}"
-    printf 'Could not safely update the Harness model catalog in %s; run ./bootstrap.sh.\n' \
-      "${settings_file}" >&2
-    return 1
-  fi
-  chmod --reference="${settings_file}" "${temp_settings}" 2>/dev/null || chmod 0600 "${temp_settings}"
-  mv -- "${temp_settings}" "${settings_file}"
-}
-
-stop_harness_service() {
-  local label="$1" url="$2" unit="$3"
-  if ! systemctl --user is-active --quiet "${unit}"; then
-    if curl -fsS --max-time 2 "${url}" >/dev/null 2>&1; then
-      printf '%s is running but is not managed by this helper; leaving it untouched.\n' "${label}" >&2
-      return 1
-    fi
-    printf '%s is already stopped.\n' "${label}"
-    return 0
-  fi
-
-  systemctl --user stop "${unit}"
-  printf '%s stopped.\n' "${label}"
-}
-
-stop_harness() { stop_harness_service "Harness" "${HARNESS_URL}" "${HARNESS_UNIT}"; }
-stop_work_harness() { stop_harness_service "Work Harness" "${WORK_HARNESS_URL}" "${WORK_HARNESS_UNIT}"; }
-
-validate_targets() {
-  local target_name
-
-  for target_name in "$@"; do
-    case "${target_name}" in
-      qwen|harness|searxng|all) ;;
-      *)
-        printf 'Unknown target: %s (expected qwen, harness, searxng, or all)\n' "${target_name}" >&2
-        return 2
-        ;;
-    esac
-  done
-}
-
-target_requested() {
-  local requested_target="$1"
-  local target_name
-  shift
-
-  for target_name in "$@"; do
-    if [[ "${target_name}" == "${requested_target}" || "${target_name}" == "all" ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-validate_recipe() {
-  case "$1" in
-    sglang|exl3|ninfer) ;;
-    *)
-      printf 'Unknown Qwen recipe: %s (expected sglang, exl3, or ninfer)\n' "$1" >&2
-      return 2
-      ;;
-  esac
-}
-
-SELECTED_RECIPE=""
-DESKTOP_USE=0
-WORK_MODE=0
-PARSED_TARGETS=()
-
-parse_service_arguments() {
-  local mode="$1"
-  shift
-
-  SELECTED_RECIPE=""
-  DESKTOP_USE=0
-  WORK_MODE=0
-  PARSED_TARGETS=()
-  while (( $# > 0 )); do
-    case "$1" in
-      --recipe)
-        shift
-        if (( $# == 0 )); then
-          printf '%s requires a value: sglang, exl3, or ninfer\n' --recipe >&2
-          return 2
-        fi
-        SELECTED_RECIPE="$1"
-        ;;
-      --recipe=*)
-        SELECTED_RECIPE="${1#--recipe=}"
-        ;;
-      --desktop-use)
-        if [[ "${mode}" != "start" ]]; then
-          printf '%s is valid only with the start command.\n' --desktop-use >&2
-          return 2
-        fi
-        DESKTOP_USE=1
-        ;;
-      --work)
-        WORK_MODE=1
-        ;;
-      --*)
-        printf 'Unknown option: %s\n' "$1" >&2
-        return 2
-        ;;
-      *)
-        PARSED_TARGETS+=("$1")
-        ;;
-    esac
-    shift
-  done
-
-  if [[ -n "${SELECTED_RECIPE}" ]]; then
-    validate_recipe "${SELECTED_RECIPE}"
-  elif [[ "${mode}" == "start" ]]; then
-    SELECTED_RECIPE="sglang"
-  fi
-  if (( ${#PARSED_TARGETS[@]} == 0 )); then
-    PARSED_TARGETS=(all)
-  fi
-  validate_targets "${PARSED_TARGETS[@]}"
-}
-
-start_targets() {
-  local recipe="$1"
-  shift
-
-  validate_targets "$@"
-  validate_recipe "${recipe}"
-
-  if target_requested searxng "$@"; then
-    docker compose -f "${STACK_DIR}/compose.yaml" up -d searxng
-  fi
-  if target_requested qwen "$@"; then
-    case "${recipe}" in
-      sglang)
-        start_qwen
-        wait_for_qwen
-        ;;
-      exl3) start_qwen_full ;;
-      ninfer) start_qwen_ninfer ;;
-    esac
-    sync_harness_model "${recipe}"
-  fi
-  if target_requested harness "$@"; then
-    if (( WORK_MODE )); then start_work_harness; else start_harness; fi
-  fi
-}
-
-stop_targets() {
-  local recipe="$1"
-  shift
-  local stop_result=0
-
-  validate_targets "$@"
-
-  if target_requested harness "$@"; then
-    if (( WORK_MODE )); then stop_work_harness || stop_result=$?; else stop_harness || stop_result=$?; fi
-  fi
-  if target_requested qwen "$@"; then
-    case "${recipe}" in
-      sglang)
-        docker stop "${QWEN_CONTAINER}" >/dev/null 2>&1 || true
-        printf 'Qwen sglang stopped; its CUDA allocation has been released.\n'
-        ;;
-      exl3)
-        docker stop --time 60 "${QWEN_FULL_CONTAINER}" >/dev/null 2>&1 || true
-        printf 'Qwen EXL3 stopped; its CUDA allocation has been released.\n'
-        ;;
-      ninfer)
-        docker stop --time 60 "${QWEN_NINFER_CONTAINER}" >/dev/null 2>&1 || true
-        printf 'Qwen NInfer stopped; its CUDA allocation has been released.\n'
-        ;;
-      "")
-        docker stop "${QWEN_CONTAINER}" >/dev/null 2>&1 || true
-        docker stop --time 60 "${QWEN_FULL_CONTAINER}" >/dev/null 2>&1 || true
-        docker stop --time 60 "${QWEN_NINFER_CONTAINER}" >/dev/null 2>&1 || true
-        printf 'All Qwen recipes stopped; their CUDA allocations have been released.\n'
-        ;;
-    esac
-  fi
-  if target_requested searxng "$@"; then
-    docker compose -f "${STACK_DIR}/compose.yaml" stop searxng >/dev/null
-    printf 'SearXNG stopped.\n'
-  fi
-  return "${stop_result}"
+  return 0
 }
 
 status() {
-  if systemctl --user is-active --quiet "${HARNESS_UNIT}"; then
-    printf 'Harness: running at %s\n\n' "${HARNESS_URL}"
-  elif curl -fsS --max-time 2 "${HARNESS_URL}" >/dev/null 2>&1; then
-    printf 'Harness: responding at %s, but not managed by this helper\n\n' "${HARNESS_URL}"
-  else
-    printf 'Harness: stopped\n\n'
-  fi
-  if systemctl --user is-active --quiet "${WORK_HARNESS_UNIT}"; then
-    printf 'Work Harness: running at %s\n\n' "${WORK_HARNESS_URL}"
-  elif curl -fsS --max-time 2 "${WORK_HARNESS_URL}" >/dev/null 2>&1; then
-    printf 'Work Harness: responding at %s, but not managed by this helper\n\n' "${WORK_HARNESS_URL}"
-  else
-    printf 'Work Harness: stopped\n\n'
-  fi
-  docker ps -a --filter "name=^/${QWEN_CONTAINER}$" --filter "name=^/${QWEN_FULL_CONTAINER}$" \
-    --filter "name=^/${QWEN_NINFER_CONTAINER}$" \
-    --filter "name=^/qwen-searxng$" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-  printf '\nGPU processes:\n'
-  nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null || true
+  local unit url
+  for unit in local-qwen-harness.service local-qwen-harness-work.service; do
+    [[ "$unit" == *-work.* ]] && url=http://127.0.0.1:3081 || url=http://127.0.0.1:3080
+    printf '%-13s %s\n' "${unit#local-qwen-}" "$(systemctl --user is-active "$unit" 2>/dev/null || true)  $url"
+  done
+  docker ps -a --filter name=qwen --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+  printf '\nGPU:\n'; nvidia-smi --query-gpu=name,memory.used,memory.free,utilization.gpu,temperature.gpu --format=csv,noheader 2>/dev/null || true
 }
 
 logs() {
-  local target="${1:-harness}"
-  local container_name
-
-  case "${target}" in
-    harness)
-      if (( WORK_MODE )); then
-        journalctl --user -u "${WORK_HARNESS_UNIT}" -n 100 --no-pager
-      else
-        journalctl --user -u "${HARNESS_UNIT}" -n 100 --no-pager
-      fi
-      ;;
-    qwen)
-      for container_name in "${QWEN_CONTAINER}" "${QWEN_FULL_CONTAINER}" "${QWEN_NINFER_CONTAINER}"; do
-        if container_running "${container_name}"; then
-          docker logs --tail 100 "${container_name}"
-          return
-        fi
-      done
-      printf 'No Qwen recipe is running.\n' >&2
-      return 1
-      ;;
-    searxng)
-      docker logs --tail 100 qwen-searxng
-      ;;
-    *)
-      printf 'Unknown log target: %s (expected qwen, harness, or searxng)\n' "${target}" >&2
-      return 2
-      ;;
+  local target="${1:-harness}" recipe
+  case "$target" in
+    harness) (( WORK_MODE )) && journalctl --user -u local-qwen-harness-work.service -n 100 --no-pager ||
+      journalctl --user -u local-qwen-harness.service -n 100 --no-pager ;;
+    searxng) docker logs --tail 100 qwen-searxng ;;
+    qwen) for recipe in "${RECIPES[@]}"; do running "${CONTAINER[$recipe]}" && { docker logs --tail 100 "${CONTAINER[$recipe]}"; return; }; done; die "No model is running." ;;
+    *) die "Log target must be qwen, harness, or searxng." ;;
   esac
 }
 
-recipes() {
-  cat <<'EOF'
-Available Qwen recipes
-
-  RECIPE    ENGINE   WEIGHTS       KV    MAX CONTEXT   DESKTOP CONTEXT   VISION   SPECULATION
-  sglang*   SGLang   NVFP4         FP8       122,880           122,880   yes      DSpark-7
-  exl3      vLLM     EXL3 K5/K6    FP8       262,144           155,648   yes      MTP-3
-  ninfer    NInfer   NVFP4         INT8      252,928           172,032   no       MTP-3
-
-  * Default recipe
-
-  RECIPE    SERVED MODEL ID
-  sglang    qwen3.8-27b-sglang-nvfp4-122880
-  exl3      qwen3.8-27b-vllm-exl3-k5k6-262144
-  ninfer    qwen3.8-27b-ninfer-nvfp4-252928
-
-DESKTOP CONTEXT is selected by --desktop-use. SGLang is unchanged because its
-normal profile is already suitable for desktop use. EXL3 and NInfer reserve
-roughly 5 GiB of VRAM for the graphical desktop. Only one recipe runs at a time;
-all expose their OpenAI-compatible API at http://127.0.0.1:30000/v1.
-Harness lists only the recipe most recently started with the qwen target.
-EOF
+show_recipes() {
+  printf '%-8s %-10s %-18s %-6s %10s %10s %-6s %s\n' RECIPE ENGINE WEIGHTS KV MAX DESKTOP VISION SPEC
+  local r; for r in "${RECIPES[@]}"; do
+    printf '%-8s %-10s %-18s %-6s %10s %10s %-6s %s\n' "$r$([[ $r == sglang ]] && echo '*')" \
+      "${ENGINE[$r]}" "${WEIGHTS[$r]}" "${KV[$r]}" "${CONTEXT[$r]}" "${DESKTOP[$r]}" \
+      "$([[ ${VISION[$r]} == 1 ]] && echo yes || echo no)" "${SPEC[$r]}"
+  done
+  printf '\nAll recipes use http://127.0.0.1:30000/v1; * is the default.\n'
 }
 
-github_login() {
-  command -v gh >/dev/null 2>&1 || { printf 'GitHub CLI (gh) is required.\n' >&2; return 1; }
-  GH_CONFIG_DIR="${WORK_GH_CONFIG_DIR}" gh auth login -h github.com --web --scopes repo,read:org
+github() {
+  command -v gh >/dev/null || die "Install GitHub CLI first."
+  if [[ "$1" == login ]]; then GH_CONFIG_DIR="$GH_DIR" gh auth login -h github.com --web --scopes repo,read:org
+  else GH_CONFIG_DIR="$GH_DIR" gh auth status -h github.com; fi
 }
 
-github_status() {
-  command -v gh >/dev/null 2>&1 || { printf 'GitHub CLI (gh) is required.\n' >&2; return 1; }
-  GH_CONFIG_DIR="${WORK_GH_CONFIG_DIR}" gh auth status -h github.com
-}
-
-usage() {
-  cat <<'EOF'
-local-ai - manage the local Qwen stack
+usage() { cat <<'EOF'
+local-ai — manage the local Qwen stack
 
 USAGE
-  local-ai start [--work] [--recipe RECIPE] [--desktop-use] [TARGET ...]
-  local-ai stop [--work] [--recipe RECIPE] [TARGET ...]
-  local-ai logs [--work] [TARGET]
-  local-ai prepare RECIPE
+  local-ai start [--work] [--recipe NAME] [--desktop-use] [TARGET ...]
+  local-ai stop  [--work] [--recipe NAME] [TARGET ...]
+  local-ai prepare NAME
   local-ai COMMAND
 
 COMMANDS
-  start             Start one or more targets (defaults to all)
-  stop              Stop one or more targets (defaults to all)
-  prepare           Download/build one recipe without starting it
-  recipes           List recipes and their main characteristics
-  github-login      Sign the isolated work profile into GitHub
-  github-status     Check the isolated work-profile GitHub login
-  dashboard         Open the interactive status, logs, and GPU dashboard
-  status            Show Harness, container, and GPU-process status
-  logs              Show 100 log lines for qwen, harness, or searxng
-  help              Show this help
+  start           Start targets; default: all
+  stop            Stop targets; default: all
+  prepare         Download/build one recipe without starting it
+  recipes         List model recipes
+  dashboard       Interactive status, logs, and GPU metrics
+  status          Compact service/container/GPU status
+  logs            Last 100 lines for qwen, harness, or searxng
+  github-login    Sign the isolated work profile into GitHub
+  github-status   Check its GitHub login
+  test            Run repository checks
 
 OPTIONS
-  --recipe RECIPE   Qwen recipe: sglang (default), exl3, or ninfer
-  --work            Select the isolated work Harness instead of the personal one
-  --desktop-use     Reserve about 5 GiB of VRAM with EXL3/NInfer; SGLang is
-                    unchanged. This does not make gaming alongside Qwen viable.
+  --recipe NAME   sglang (default), exl3, ninfer, udq4, or a3b
+  --desktop-use   Use the recipe's desktop context profile
+  --work          Use isolated Harness at :3081 in the current directory
 
 TARGETS
-  qwen              Model server at http://127.0.0.1:30000/v1
-  harness           Selected Harness: personal, or work when --work is present
-  searxng           Private search service at http://127.0.0.1:8888
-  all               Qwen, selected Harness, and SearXNG (the default)
+  qwen            OpenAI-compatible model server at :30000/v1
+  harness         Personal Harness (:3080), or work Harness with --work
+  searxng         Private search service at :8888
+  all             All targets (default)
 
 EXAMPLES
   local-ai start qwen harness
-  local-ai start --recipe exl3 qwen harness
-  cd COMPANY_REPO && local-ai start --work --recipe exl3 --desktop-use qwen harness searxng
-  local-ai start --recipe ninfer --desktop-use qwen harness searxng
+  local-ai start --recipe udq4 --desktop-use qwen harness
+  local-ai start --work --recipe a3b qwen harness searxng
   local-ai stop qwen
-  local-ai prepare ninfer
   local-ai recipes
-  local-ai github-login
-  local-ai logs --work harness
-  local-ai dashboard
 EOF
 }
 
+SELECTED_RECIPE=""; DESKTOP_USE=0; WORK_MODE=0; TARGETS=()
+parse() {
+  local mode="$1"; shift
+  while (( $# )); do case "$1" in
+    --recipe) shift; (( $# )) || die "--recipe needs a value"; SELECTED_RECIPE="$1" ;;
+    --recipe=*) SELECTED_RECIPE="${1#*=}" ;;
+    --desktop-use) [[ "$mode" == start ]] || die "--desktop-use is start-only"; DESKTOP_USE=1 ;;
+    --work) WORK_MODE=1 ;;
+    --*) die "Unknown option: $1" ;;
+    *) TARGETS+=("$1") ;;
+  esac; shift; done
+  [[ -n "$SELECTED_RECIPE" ]] && valid_recipe "$SELECTED_RECIPE"
+  [[ "$mode" == start && -z "$SELECTED_RECIPE" ]] && SELECTED_RECIPE=sglang
+  (( ${#TARGETS[@]} )) || TARGETS=(all)
+  local t; for t in "${TARGETS[@]}"; do [[ "$t" =~ ^(qwen|harness|searxng|all)$ ]] || die "Unknown target: $t"; done
+}
+
 case "${1:-}" in
-  start)
-    shift
-    parse_service_arguments start "$@"
-    start_targets "${SELECTED_RECIPE}" "${PARSED_TARGETS[@]}"
-    ;;
-  prepare)
-    shift
-    (( $# == 1 )) || { usage; exit 2; }
-    validate_recipe "$1"
-    case "$1" in
-      sglang) prepare_qwen_sglang ;;
-      exl3) prepare_qwen_full ;;
-      ninfer) prepare_qwen_ninfer ;;
-    esac
-    ;;
-  stop)
-    shift
-    parse_service_arguments stop "$@"
-    stop_targets "${SELECTED_RECIPE}" "${PARSED_TARGETS[@]}"
-    ;;
+  start|stop) command="$1"; shift; parse "$command" "$@"; service_targets "$command" "$SELECTED_RECIPE" ;;
+  prepare) shift; (( $# == 1 )) || die "Usage: local-ai prepare RECIPE"; prepare "$1" ;;
+  recipes) show_recipes ;;
+  dashboard) exec python3 "$STACK/dashboard.py" ;;
   status) status ;;
-  logs)
-    shift
-    WORK_MODE=0
-    if [[ "${1:-}" == "--work" ]]; then WORK_MODE=1; shift; fi
-    (( $# <= 1 )) || { usage >&2; exit 2; }
-    logs "${1:-harness}"
-    ;;
-  dashboard)
-    shift
-    (( $# == 0 )) || { usage >&2; exit 2; }
-    exec python3 "${STACK_DIR}/dashboard.py"
-    ;;
-  recipes) recipes ;;
-  github-login) github_login ;;
-  github-status) github_status ;;
+  logs) shift; [[ "${1:-}" == --work ]] && { WORK_MODE=1; shift; }; (( $# <= 1 )) || die "Usage: local-ai logs [--work] [TARGET]"; logs "${1:-}" ;;
+  github-login) github login ;;
+  github-status) github status ;;
+  test) exec "$STACK/test.sh" ;;
   help|-h|--help) usage ;;
   "") usage; exit 2 ;;
-  *)
-    printf 'Unknown command: %s\n\n' "$1" >&2
-    usage >&2
-    exit 2
-    ;;
+  *) die "Unknown command: $1" ;;
 esac

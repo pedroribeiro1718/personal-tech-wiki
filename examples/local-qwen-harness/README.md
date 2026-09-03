@@ -1,268 +1,134 @@
-# Local Qwen + SearXNG + DeepSeek Harness
+# Local Qwen stack for one RTX 5090
 
-This directory is the reproducible source of truth for the working RTX 5090
-setup. It contains the pinned Qwen/SGLang runtime, private SearXNG service,
-read-only MCP search adapter, Harness model/profile settings, and manual
-management helper. Harness uses a pinned local Markdown renderer for Mermaid
-diagrams. The custom model route explicitly declares text and image input; the
-pinned checkpoint's vision path was verified through SGLang.
+Reproducible, manually started local-agent stack:
 
-An isolated company-work Harness is also available. It uses its own
-`~/.dsh-work` state, a lean repository-assistant preset, the same general
-SearXNG search/page-snapshot tools, and GitHub's official MCP server in
-read-only and lockdown modes. The normal Harness remains unchanged.
+- one OpenAI-compatible Qwen server at `http://127.0.0.1:30000/v1`
+- DeepSeek Harness at `http://127.0.0.1:3080`
+- isolated work Harness at `http://127.0.0.1:3081`
+- private SearXNG at `http://127.0.0.1:8888`
+- native Harness search, restricted public-page fetch, Mermaid, and optional
+  read-only GitHub integration
 
-The optional `exl3` recipe adds the model's native 262,144-token window.
-It uses the measured EXL3 K5/K6 context build, FP8 KV, MTP-3, and the BF16
-vision tower through a digest-pinned Gilded Gnosis/vLLM image. It does not
-alter the default 122,880-token SGLang recipe.
+Nothing is enabled at boot. Only one model recipe runs at a time.
 
-A third, experimental `ninfer` recipe exposes 252,928 text tokens using
-NInfer, INT8 KV, and MTP-3. That is 96.5% of the native window. Like every
-recipe, it uses the single local model endpoint on port 30000.
+## Recover on another Linux installation
 
-## Restore on a new installation
-
-Prerequisites:
-
-- NVIDIA driver working in `nvidia-smi`
-- Docker Engine, Docker Compose v2, and NVIDIA Container Toolkit
-- Git, GitHub CLI, Node.js, pnpm, curl, sed, OpenSSL, and `sha256sum`
-- a running systemd user manager (`systemctl --user`)
-
-From this directory, run:
+Install a working NVIDIA driver, Docker Engine/Compose v2, NVIDIA Container
+Toolkit, Git, GitHub CLI, Node.js, pnpm, curl, sed, OpenSSL, and `sha256sum`.
+`nvidia-smi`, `docker compose version`, and `systemctl --user` must work.
 
 ```bash
+git clone https://github.com/pedroribeiro1718/personal-tech-wiki.git
+cd personal-tech-wiki/examples/local-qwen-harness
 ./bootstrap.sh
 ```
 
-This installs dependencies, restores the personal and isolated-work Harness
-files under `~/.dsh` and `~/.dsh-work`, pulls the pinned images, creates the
-model-cache volume, and installs
-`~/.local/bin/local-ai`. It does **not** start anything or enable autostart.
-Existing Harness files that differ are retained as `*.before-local-ai`.
+Bootstrap restores `~/.dsh` and `~/.dsh-work`, installs pinned Harness
+plugins, pulls/builds pinned runtimes, and links `~/.local/bin/local-ai`. It
+does not start services or enable autostart. Model weights remain in local
+caches and are downloaded separately.
 
-## Service commands
-
-```bash
-local-ai start                   # all three
-local-ai start qwen harness      # any additive subset
-local-ai prepare exl3            # fetch the optional pinned runtime image
-local-ai start --recipe exl3 qwen harness
-./test-full-context.mjs          # direct 250K-token retrieval test
-local-ai prepare ninfer          # build pinned NInfer + fetch its 20.02-GiB artifact
-local-ai start --recipe ninfer qwen harness
-QWEN_TEST_MODEL=qwen3.8-27b-ninfer-nvfp4-252928 ./test-full-context.mjs 245000
-local-ai start --recipe ninfer --desktop-use qwen harness
-local-ai github-login                # one-time isolated company GitHub login
-cd COMPANY_REPO
-local-ai start --work --recipe exl3 --desktop-use qwen harness searxng
-local-ai recipes                    # compare engines, formats, and context limits
-local-ai dashboard                  # interactive services, logs, and GPU view
-local-ai status
-local-ai logs qwen                  # qwen, harness, or searxng
-local-ai stop qwen               # release VRAM only
-local-ai start qwen              # reload the model only
-local-ai stop                    # all three
-```
-
-The valid targets are `qwen`, `harness`, and `searxng`; list one or several in
-any order. The Qwen recipe values are `sglang` (default), `exl3`, and `ninfer`.
-Run `local-ai recipes` for a compact comparison of their canonical served IDs,
-engines, weight and KV formats, normal/desktop context limits, vision, and
-speculative decoding.
-With no targets, `start` starts the selected Qwen recipe, Harness, and SearXNG.
-Add `--work` to select the isolated work Harness instead of the personal one.
-Without `--recipe`, `stop qwen` stops every recipe container. Harness runs as a
-transient user-systemd service, and
-`local-ai logs` reads its journal.
-The transient unit provides reliable process-tree cleanup without installing or
-enabling a boot service. Nothing starts at boot, and all Docker services use
-`restart: "no"`.
-
-`local-ai stop qwen` releases its CUDA allocation while leaving Harness and
-SearXNG alone. Only one Qwen recipe can use the single GPU at a time. Harness
-does not infer model availability or custom context limits from this endpoint.
-The bootstrap template retains all three definitions for recovery, while
-`local-ai start ... qwen` atomically replaces the live catalog and default with
-only the active recipe and its actual normal/desktop capacity. Harness
-hot-reloads `~/.dsh/settings.yaml`; no restart or manual model selection is
-needed. `stop qwen` retains that single last-used entry because Harness requires
-a default even while the endpoint is offline. Start a new Harness session after
-switching recipes; an existing session retains the model it began with.
-
-`local-ai dashboard` opens a dependency-free terminal dashboard with Overview,
-Qwen, personal/work Harness, SearXNG, and GPU tabs. Use `Tab` or `1`–`6` to switch,
-arrow/Page keys to scroll, `f` to follow logs, `r` to refresh, and `q` to quit.
-The original `status` and targeted `logs [qwen|harness|searxng]` commands remain
-available for scripts and copyable diagnostics.
-
-## Desktop-use mode
-
-Add `--desktop-use` when starting a long-context recipe to retain roughly
-5 GiB of the card for KDE and accelerated browser workloads. SGLang keeps its
-already-tested normal desktop settings:
+## Everyday commands
 
 ```bash
-local-ai stop qwen
-local-ai start --recipe ninfer --desktop-use qwen harness
+local-ai recipes
+local-ai start                                      # default SGLang stack
+local-ai start --recipe a3b --desktop-use           # all targets, A3B
+local-ai start --recipe udq4 --desktop-use qwen harness
+local-ai stop qwen                                  # release GPU memory
+local-ai stop harness searxng                       # additive targets
+local-ai dashboard                                  # status/log/GPU TUI
+local-ai logs qwen                                  # also harness or searxng
+local-ai test                                       # syntax, pins, Compose, budgets
 ```
 
-The flag applies a measured, backend-specific compromise:
+Targets are `qwen`, `harness`, and `searxng`; omit them for all three. Start a
+new Harness session after switching recipes. The live Harness catalog contains
+only the last started model and its actual context limit. Harness requires a
+default model entry, so that one entry remains visible while its endpoint is
+stopped.
 
-| Recipe | Normal target context | Desktop-use context | Other desktop changes | Approximate total VRAM left outside the model |
-| --- | ---: | ---: | --- | ---: |
-| `sglang` | 122,880 | 122,880 | unchanged; already desktop-qualified | ~4.6 GiB |
-| `exl3` | 262,144 | 155,648 | memory fraction 0.85, prefill chunk 1,024, 4-Mpx image ceiling | 4.9 GiB |
-| `ninfer` | 252,928 | 172,032 | explicit INT8 KV capacity, concurrency 1, prefill chunk 512 | 5.0 GiB |
+## Recipes
 
-The current KDE plus lightly loaded Zen baseline was 3,185 MiB. EXL3 and
-NInfer leave about 1.3 GiB beyond that baseline for more tabs and ordinary
-accelerated pages. Browser VRAM use is
-content-dependent, so video, WebGL/WebGPU, and games can still exceed that
-allowance. Startup checks current free VRAM and refuses rather than forcing an
-unsafe allocation. Without the flag, every original full-performance profile
-is unchanged.
+| Name | Engine / weights | KV | Normal context | Desktop context | Vision | Draft |
+| --- | --- | --- | ---: | ---: | --- | --- |
+| `sglang` | SGLang / NVFP4 | FP8 | 122,880 | 122,880 | yes | DSpark-7 |
+| `exl3` | vLLM / EXL3 K5/K6 | FP8 | 262,144 | 155,648 | yes | MTP-3 |
+| `ninfer` | NInfer / NVFP4 | INT8 | 252,928 | 172,032 | no | MTP-3 |
+| `udq4` | llama.cpp / Unsloth UD-Q4_K_XL | Q8_0 | 262,144 | 196,608 | yes | MTP-3 |
+| `a3b` | NInfer / Qwen3.6 35B-A3B groupwise-int | INT8 | 262,144 | 245,760 | yes | MTP-3 |
 
-For EXL3 and NInfer, local runtime/model preparation completes before the final
-VRAM check, keeping that snapshot close to container launch. If any model
-container exits before its API is ready, the readiness loop stops immediately
-and prints the last 40 container-log lines.
+Use `local-ai prepare NAME` to fetch/build a recipe without starting it.
+Preparation is resumable and verifies pinned artifact sizes and SHA-256 hashes.
 
-## Optional native 262K profile
+The two newest profiles were acceptance-tested on this machine:
 
-Prepare once, then start it when needed:
+- `udq4 --desktop-use`: 30,091 MiB used, 2,058 MiB free at 196,608.
+- `udq4` full: 31,384 MiB used, 765 MiB free at 262,144.
+- `a3b --desktop-use`: 27,553 MiB used, 4,595 MiB free at 245,760.
+- `a3b` full: 27,686 MiB used, 4,463 MiB free at 262,144.
 
-```bash
-local-ai prepare exl3
-local-ai stop qwen
-local-ai start --recipe exl3 qwen harness
-```
+Those are snapshots, not guarantees: KDE, browsers, video, WebGL/WebGPU, and
+games change available VRAM. The startup guard checks current free memory and
+refuses unsafe launches. `sglang` was already qualified for normal desktop use,
+so `--desktop-use` deliberately leaves it unchanged.
 
-Preparation downloads and verifies four pinned runtime overlays and pulls the
-pinned image; it starts nothing. The first start downloads the pinned 20.7 GB
-model snapshot into a separate Docker volume. It serves through the shared
-`http://127.0.0.1:30000/v1` endpoint; only one recipe may run at a time.
+The full `udq4` profile keeps the language model, Q8 KV, and MTP on GPU but
+places its 888-MiB BF16 vision projector in system RAM. This preserves text
+precision and throughput while making 262K fit, but large-image preprocessing
+can be very slow. Its 196K desktop profile keeps that projector on GPU and is
+the practical multimodal setting. The full `a3b` profile retains GPU vision
+with materially better headroom.
 
-The profile is deliberately single-user: 262,144 context, FP8 KV, MTP-3,
-`max-num-seqs=1`, and an 8.4-megapixel vision ceiling. Prefix caching is off
-because the measured full-window-plus-vision profile does not have enough
-headroom for it. `gpu-memory-utilization=0.955` was qualified on one physical
-RTX 5090; if startup misses by a few MiB on this card, change it to `0.956` in
-`qwen-vllm-exl3-k5k6-262144.compose.yaml` and record that change here.
+Canonical served IDs include model, engine, quantization, and normal context;
+`local-ai recipes` prints them. Compose files contain every inference flag and
+[`VERSIONS.md`](VERSIONS.md) records immutable sources.
 
-Without `--desktop-use`, vLLM reserves 95.5% of the card. `local-ai` checks
-free VRAM and refuses to start unless that budget is available. On KDE,
-close GPU applications and stop the graphical session if necessary. This guard
-avoids turning an expected startup refusal into another driver-level VRAM OOM.
+## Harness tools
 
-Run the direct long-context smoke test only after the endpoint is ready:
+Ready-made integrations are used before custom code:
 
-```bash
-./test-full-context.mjs          # targets about 250,000 prompt-content tokens
-./test-full-context.mjs 200000   # quicker, smaller run
-```
+- [`dsh-searxng`](https://github.com/rogerdigital/dsh-searxng) supplies the
+  native `web_search` provider against local SearXNG.
+- [`@j0hanz/fetch-url-mcp`](https://github.com/j0hanz/fetch-url-mcp) supplies
+  read-only `mcp__fetch__fetch-url`, with DNS/IP/redirect checks and no
+  JavaScript execution.
+- `dsh-better-markdown` renders Mermaid locally.
+- the work profile launches GitHub's official MCP server in read-only,
+  lockdown mode.
 
-It plants codes near the start, middle, and end, sizes the prompt with the
-server tokenizer, and requires exact retrieval. This proves that the long
-window is usable; it is not a general long-context reasoning benchmark.
+The old custom search/fetch adapter was removed. The generic Harness `web`
+plugin may still expose a `web_search` schema, but `dsh-searxng` is its
+registered provider; `web-search-deepseek` stays disabled.
 
-## Optional NInfer 252,928-token profile
-
-Prepare once, then start it instead of either other model service:
-
-```bash
-local-ai prepare ninfer
-local-ai stop qwen
-local-ai start --recipe ninfer qwen searxng harness
-```
-
-Preparation checks out the pinned NInfer source, builds its CUDA 13.1 image,
-downloads the pinned 20.02-GiB `.ninfer` artifact, and verifies its exact size
-and SHA-256. It starts nothing. Downloads can resume after interruption.
-
-In Harness, select `Qwen 3.8 27B · NInfer · NVFP4 · 252,928`. This route is
-text-only because
-NInfer's qualified vision profile reserves enough memory to reduce context to
-81,920 tokens. The max-context profile instead uses 252,928 tokens, INT8 KV,
-MTP-3, two-request scheduling, and prefix reuse. Reasoning and tool-call
-parsing remain supported; Harness still executes the SearXNG tools.
-
-The profile needs an almost otherwise-idle 32-GB GPU. `local-ai` refuses to
-start it unless all but roughly 1,080 MiB of VRAM is free. Run the direct test
-after the endpoint reports ready:
-
-```bash
-QWEN_TEST_MODEL=qwen3.8-27b-ninfer-nvfp4-252928 \
-  ./test-full-context.mjs 245000
-
-local-ai stop --recipe ninfer qwen
-```
-
-The service uses the shared `http://127.0.0.1:30000/v1` endpoint. Source,
-build products, and model data live in the user cache rather than this
-repository.
-
-The SearXNG browser interface is available at
-`http://127.0.0.1:8888`.
-
-## Company repository profile
-
-Authenticate once, then launch the work Harness from the repository you want
-as its workspace:
+For company work:
 
 ```bash
 local-ai github-login
 local-ai github-status
-cd /path/to/company/repository
-local-ai start --work --recipe exl3 --desktop-use qwen harness searxng
+cd /path/to/repository
+local-ai start --work --recipe a3b --desktop-use qwen harness searxng
+# open http://127.0.0.1:3081 and select that repository as the workspace
 ```
 
-Open `http://127.0.0.1:3081`. The work login uses a separate GitHub CLI config
-directory at `$XDG_CONFIG_HOME/gh-work` (or `~/.config/gh-work`); no token is copied
-into this repository or Harness settings. Organization SSO authorization may
-still be required by the company. `local-ai stop --work harness` stops only this
-UI, while `local-ai logs --work harness` reads its journal.
+The work instance has separate state and GitHub credentials. Its official
+GitHub MCP exposes only `context,repos,issues,pull_requests`, with writes and
+remote command execution disabled. General web search remains available, but
+never send proprietary code, internal URLs, credentials, issue text, or logs
+to a public search engine.
 
-The work preset provides Harness's built-in shell, filesystem, repository
-search, background-job, instruction, skill, compaction, ask-user, and todo
-plugins. The [official GitHub MCP server](https://github.com/github/github-mcp-server)
-contributes repository, issue, and pull
-request inspection using `context,repos,issues,pull_requests`; both read-only
-and lockdown modes are forced by the launcher. Remote writes, Actions control,
-and browser-based GitHub login plugins are intentionally omitted.
+## Operations and maintenance
 
-General web search is retained through SearXNG, including the restricted
-public-page snapshot tool. Its work-profile instructions prohibit sending
-proprietary code, credentials, internal URLs, company issue text, or logs to
-public search. Use only generic public queries; use local/GitHub tools for
-company material.
+Harness runs as transient user-systemd services; Docker services use
+`restart: "no"`. `local-ai stop qwen` sends Docker SIGTERM with a 60-second
+grace period. Some backends print cancellation/NCCL cleanup traces during an
+otherwise successful stop; confirm with `local-ai status` and `nvidia-smi`.
 
-## Adapter
+The dashboard is dependency-free. Use `Tab` or `1`–`6` for tabs, arrows/Page
+keys to scroll, `f` to follow, `r` to refresh, and `q` to quit.
 
-The MCP adapter is started by Harness over stdio. It exposes two read-only
-tools:
-
-- `mcp__searxng__web_search` queries the local SearXNG JSON API.
-- `mcp__searxng__fetch_page` captures size-limited plain text from a public
-  HTTP(S) page so the agent can verify a search result before citing it.
-
-The page tool blocks credentials, private/local networks, nonstandard ports,
-binary content, redirect abuse, oversized bodies, and slow responses. DNS is
-validated and pinned for each request, and HTML is never executed.
-The default `local-standard` agent preset mirrors Harness's pinned Standard
-mode with its native `web_search` and `web_fetch` schemas disabled, so the
-model is offered only the working SearXNG tools.
-
-Harness renders fenced `mermaid` blocks through
-`dsh-better-markdown@0.1.2`. Mermaid is bundled with the plugin, so diagram
-rendering does not depend on a CDN. After restoring or changing the plugin,
-reload the Harness page once.
-
-Canonical served IDs use `qwen3.8-27b-<engine>-<weight-quant>-<normal-context>`;
-Harness presents the same attributes as readable display names. See
-`qwen-sglang-nvfp4-122880.compose.yaml`,
-`qwen-vllm-exl3-k5k6-262144.compose.yaml`, and
-`qwen-ninfer-nvfp4-252928.compose.yaml` for every inference parameter, and
-`VERSIONS.md` for captured source/image/model revisions. Model caches are large
-and are not part of this bundle; a fresh machine downloads them separately.
+Maintenance rules are enforced by `test.sh`: existing maintained plugins/MCP
+servers first, custom code only when strictly necessary, `local-ai` at most
+400 physical lines, and all maintained operational code/configuration at most
+1,800 physical lines. Prose docs are the only exclusion; generated files,
+splitting, and moving logic into configuration are not loopholes.

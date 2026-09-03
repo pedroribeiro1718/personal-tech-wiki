@@ -17,6 +17,8 @@ CONTAINERS = {
     "sglang": "qwen38",
     "exl3": "qwen38-full",
     "ninfer": "qwen38-ninfer",
+    "udq4": "qwen38-udq4",
+    "a3b": "qwen36-a3b",
 }
 TABS = ("Overview", "Qwen log", "Harness log", "Work log", "SearXNG log", "GPU")
 LOG_TABS = {1, 2, 3, 4}

@@ -1,128 +1,61 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
+STACK="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PERSONAL="${DSH_DIR:-$HOME/.dsh}"
+WORK="${WORK_DSH_DIR:-$HOME/.dsh-work}"
 
-STACK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-DSH_DIR="${DSH_DIR:-${HOME}/.dsh}"
-PROFILE_DIR="${DSH_DIR}/profiles/web"
-PRESET_DIR="${DSH_DIR}/.agent-presets/local-standard"
-WORK_DSH_DIR="${WORK_DSH_DIR:-${HOME}/.dsh-work}"
-WORK_PROFILE_DIR="${WORK_DSH_DIR}/profiles/web"
-WORK_PRESET_DIR="${WORK_DSH_DIR}/.agent-presets/local-code-work"
-BIN_DIR="${HOME}/.local/bin"
-
-for command_name in docker git gh node pnpm python3 curl sed awk openssl sha256sum systemctl systemd-run journalctl; do
-  if ! command -v "${command_name}" >/dev/null 2>&1; then
-    printf 'Missing prerequisite: %s\n' "${command_name}" >&2
-    exit 1
-  fi
+for cmd in docker git gh node pnpm python3 curl sed awk openssl sha256sum systemctl systemd-run journalctl; do
+  command -v "$cmd" >/dev/null || { printf 'Missing prerequisite: %s\n' "$cmd" >&2; exit 1; }
 done
+systemctl --user show-environment >/dev/null || { echo "A systemd user manager is required." >&2; exit 1; }
+docker compose version >/dev/null || { echo "Docker Compose v2 is required." >&2; exit 1; }
 
-if ! systemctl --user show-environment >/dev/null 2>&1; then
-  printf 'A running systemd user manager is required for background Harness control.\n' >&2
-  exit 1
-fi
+[[ -f "$STACK/.env" ]] || { printf 'SEARXNG_SECRET=%s\n' "$(openssl rand -hex 32)" >"$STACK/.env"; }
 
-if ! docker compose version >/dev/null 2>&1; then
-  printf 'Docker Compose v2 is required (the `docker compose` command).\n' >&2
-  exit 1
-fi
-
-install -d -m 0700 "${DSH_DIR}" "${WORK_DSH_DIR}"
-mkdir -p "${PROFILE_DIR}" "${PRESET_DIR}" "${WORK_PROFILE_DIR}" "${WORK_PRESET_DIR}" "${BIN_DIR}"
-
-backup_if_changed() {
-  local source_file="$1"
-  local destination_file="$2"
-  if [[ -f "${destination_file}" ]] && ! cmp -s "${source_file}" "${destination_file}"; then
-    cp -a "${destination_file}" "${destination_file}.before-local-ai"
-  fi
+backup() {
+  local src="$1" dst="$2"
+  [[ ! -f "$dst" ]] || cmp -s "$src" "$dst" || cp -a "$dst" "$dst.before-local-ai"
 }
 
-if [[ ! -f "${STACK_DIR}/.env" ]]; then
-  umask 077
-  printf 'SEARXNG_SECRET=%s\n' "$(openssl rand -hex 32)" >"${STACK_DIR}/.env"
-  printf 'Generated %s/.env\n' "${STACK_DIR}"
-fi
+install_profile() {
+  local home="$1" kind="$2" preset="$3" profile target template rendered
+  profile="$home/profiles/web"; target="$home/.agent-presets/$preset"
+  template="$STACK/bootstrap/$kind/cordis.patch.yml.in"
+  mkdir -p "$profile" "$target"
+  rendered="$(mktemp)"
+  sed -e "s|__STACK_DIR__|${STACK//&/\\&}|g" \
+      -e "s|__NODE_BIN__|$(command -v node)|g" \
+      -e "s|__PROFILE_DIR__|${profile//&/\\&}|g" "$template" >"$rendered"
+  local pair src dst
+  for pair in \
+    "$STACK/bootstrap/$kind/settings.yaml:$home/settings.yaml" \
+    "$STACK/bootstrap/harness/package.json:$profile/package.json" \
+    "$STACK/bootstrap/harness/pnpm-workspace.yaml:$profile/pnpm-workspace.yaml" \
+    "$rendered:$profile/cordis.patch.yml" \
+    "$STACK/bootstrap/$kind/agent-presets/$preset/agent.cordis.yml:$target/agent.cordis.yml" \
+    "$STACK/bootstrap/$kind/agent-presets/$preset/preset.yml:$target/preset.yml"; do
+    src="${pair%%:*}"; dst="${pair#*:}"; backup "$src" "$dst"; install -m 0644 "$src" "$dst"
+  done
+  rm -f "$rendered"
+  pnpm --dir "$profile" install
+}
 
-settings_source="${STACK_DIR}/bootstrap/harness/settings.yaml"
-package_source="${STACK_DIR}/bootstrap/harness/package.json"
-workspace_source="${STACK_DIR}/bootstrap/harness/pnpm-workspace.yaml"
-patch_template="${STACK_DIR}/bootstrap/harness/cordis.patch.yml.in"
-preset_source="${STACK_DIR}/bootstrap/harness/agent-presets/local-standard/agent.cordis.yml"
-preset_metadata_source="${STACK_DIR}/bootstrap/harness/agent-presets/local-standard/preset.yml"
-rendered_patch="$(mktemp)"
-work_settings_source="${STACK_DIR}/bootstrap/harness-work/settings.yaml"
-work_package_source="${STACK_DIR}/bootstrap/harness-work/package.json"
-work_patch_template="${STACK_DIR}/bootstrap/harness-work/cordis.patch.yml.in"
-work_preset_source="${STACK_DIR}/bootstrap/harness-work/agent-presets/local-code-work/agent.cordis.yml"
-work_preset_metadata_source="${STACK_DIR}/bootstrap/harness-work/agent-presets/local-code-work/preset.yml"
-rendered_work_patch="$(mktemp)"
-trap 'rm -f "${rendered_patch}" "${rendered_work_patch}"' EXIT
-
-escaped_stack_dir="$(printf '%s' "${STACK_DIR}" | sed 's/[&|\\]/\\&/g')"
-node_bin="$(command -v node)"
-escaped_node_bin="$(printf '%s' "${node_bin}" | sed 's/[&|\\]/\\&/g')"
-sed \
-  -e "s|__STACK_DIR__|${escaped_stack_dir}|g" \
-  -e "s|__NODE_BIN__|${escaped_node_bin}|g" \
-  "${patch_template}" >"${rendered_patch}"
-sed \
-  -e "s|__STACK_DIR__|${escaped_stack_dir}|g" \
-  -e "s|__NODE_BIN__|${escaped_node_bin}|g" \
-  "${work_patch_template}" >"${rendered_work_patch}"
-
-backup_if_changed "${settings_source}" "${DSH_DIR}/settings.yaml"
-backup_if_changed "${package_source}" "${PROFILE_DIR}/package.json"
-backup_if_changed "${workspace_source}" "${PROFILE_DIR}/pnpm-workspace.yaml"
-backup_if_changed "${rendered_patch}" "${PROFILE_DIR}/cordis.patch.yml"
-backup_if_changed "${preset_source}" "${PRESET_DIR}/agent.cordis.yml"
-backup_if_changed "${preset_metadata_source}" "${PRESET_DIR}/preset.yml"
-install -m 0644 "${settings_source}" "${DSH_DIR}/settings.yaml"
-install -m 0644 "${package_source}" "${PROFILE_DIR}/package.json"
-install -m 0644 "${workspace_source}" "${PROFILE_DIR}/pnpm-workspace.yaml"
-install -m 0644 "${rendered_patch}" "${PROFILE_DIR}/cordis.patch.yml"
-install -m 0644 "${preset_source}" "${PRESET_DIR}/agent.cordis.yml"
-install -m 0644 "${preset_metadata_source}" "${PRESET_DIR}/preset.yml"
-
-backup_if_changed "${work_settings_source}" "${WORK_DSH_DIR}/settings.yaml"
-backup_if_changed "${work_package_source}" "${WORK_PROFILE_DIR}/package.json"
-backup_if_changed "${workspace_source}" "${WORK_PROFILE_DIR}/pnpm-workspace.yaml"
-backup_if_changed "${rendered_work_patch}" "${WORK_PROFILE_DIR}/cordis.patch.yml"
-backup_if_changed "${work_preset_source}" "${WORK_PRESET_DIR}/agent.cordis.yml"
-backup_if_changed "${work_preset_metadata_source}" "${WORK_PRESET_DIR}/preset.yml"
-install -m 0644 "${work_settings_source}" "${WORK_DSH_DIR}/settings.yaml"
-install -m 0644 "${work_package_source}" "${WORK_PROFILE_DIR}/package.json"
-install -m 0644 "${workspace_source}" "${WORK_PROFILE_DIR}/pnpm-workspace.yaml"
-install -m 0644 "${rendered_work_patch}" "${WORK_PROFILE_DIR}/cordis.patch.yml"
-install -m 0644 "${work_preset_source}" "${WORK_PRESET_DIR}/agent.cordis.yml"
-install -m 0644 "${work_preset_metadata_source}" "${WORK_PRESET_DIR}/preset.yml"
-
-pnpm --dir "${STACK_DIR}/mcp" install --frozen-lockfile
-pnpm --dir "${PROFILE_DIR}" install
-pnpm --dir "${WORK_PROFILE_DIR}" install
-
-docker volume inspect qwen38-hf-cache >/dev/null 2>&1 || docker volume create qwen38-hf-cache >/dev/null
-docker compose -f "${STACK_DIR}/qwen-sglang-nvfp4-122880.compose.yaml" pull
-docker compose -f "${STACK_DIR}/compose.yaml" pull
+install_profile "$PERSONAL" harness local-standard
+install_profile "$WORK" harness-work local-code-work
+docker compose -f "$STACK/qwen-sglang-nvfp4-122880.compose.yaml" pull
+docker compose -f "$STACK/compose.yaml" pull
 docker pull "ghcr.io/github/github-mcp-server:v1.11.0@sha256:48b071b92a297eb9b8ddb8dd87ccb4c75dbca6b0867eff034de4148722e0d164"
-
-ln -sfn "${STACK_DIR}/local-ai" "${BIN_DIR}/local-ai"
+mkdir -p "$HOME/.local/bin"
+ln -sfn "$STACK/local-ai" "$HOME/.local/bin/local-ai"
 
 cat <<EOF
+Bootstrap complete. Nothing was started or enabled at boot.
 
-Bootstrap complete. Nothing was started and nothing is configured for autostart.
-
-Manual commands:
-  ${BIN_DIR}/local-ai start
-  ${BIN_DIR}/local-ai prepare exl3
-  ${BIN_DIR}/local-ai start --recipe exl3 qwen harness
-  cd COMPANY_REPO && ${BIN_DIR}/local-ai start --work --recipe exl3 --desktop-use qwen harness searxng
-  ${BIN_DIR}/local-ai prepare ninfer
-  ${BIN_DIR}/local-ai start --recipe ninfer qwen harness
-  ${BIN_DIR}/local-ai start --recipe ninfer --desktop-use qwen harness
-  ${BIN_DIR}/local-ai stop qwen
-  ${BIN_DIR}/local-ai start qwen
-  ${BIN_DIR}/local-ai stop
-  ${BIN_DIR}/local-ai status
-  ${BIN_DIR}/local-ai logs
+  local-ai recipes
+  local-ai start
+  local-ai prepare udq4
+  local-ai prepare a3b
+  local-ai start --work --recipe a3b --desktop-use
+  local-ai stop qwen
 EOF

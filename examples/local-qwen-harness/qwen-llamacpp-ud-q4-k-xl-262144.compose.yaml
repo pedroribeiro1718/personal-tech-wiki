@@ -1,0 +1,58 @@
+name: qwen38-udq4
+services:
+  qwen-udq4:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:a2ab5286ee0c01adfdb74b4bbe3439ff6c23d97596a4569dcfe487dd9d8e17ce
+    container_name: qwen38-udq4
+    restart: "no"
+    stop_grace_period: 60s
+    ipc: host
+    gpus: all
+    security_opt: [label=disable]
+    ports: ["127.0.0.1:30000:8080"]
+    volumes:
+      - ${QWEN_MODEL_DIR:?Run local-ai prepare udq4 first}:/models:ro
+    command:
+      - -m
+      - /models/Qwen3.8-27B-UD-Q4_K_XL.gguf
+      - --mmproj
+      - /models/mmproj-BF16.gguf
+      - ${QWEN_MMPROJ_MODE:---no-mmproj-offload}
+      - --model-draft
+      - /models/mtp-Qwen3.8-27B-Q4_0.gguf
+      - --alias
+      - qwen3.8-27b-llamacpp-ud-q4-k-xl-262144
+      - --ctx-size
+      - ${QWEN_CONTEXT_LENGTH:-262144}
+      - --parallel
+      - "1"
+      - --n-gpu-layers
+      - "999"
+      - --flash-attn
+      - "on"
+      - --cache-type-k
+      - q8_0
+      - --cache-type-v
+      - q8_0
+      - --batch-size
+      - "2048"
+      - --ubatch-size
+      - "512"
+      - --spec-type
+      - draft-mtp
+      - --spec-draft-n-max
+      - "3"
+      - --spec-draft-ngl
+      - "999"
+      - --jinja
+      - --reasoning
+      - "on"
+      - --reasoning-preserve
+      - --image-min-tokens
+      - "1024"
+      - --fit
+      - "off"
+      - --metrics
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"

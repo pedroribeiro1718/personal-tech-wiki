@@ -1,0 +1,48 @@
+name: qwen36-a3b
+services:
+  qwen-a3b:
+    image: local/qwen-ninfer:a140e7ae82a1
+    container_name: qwen36-a3b
+    restart: "no"
+    stop_grace_period: 60s
+    ipc: host
+    gpus: all
+    security_opt: [label=disable]
+    ports: ["127.0.0.1:30000:8080"]
+    volumes:
+      - type: bind
+        source: ${QWEN_MODEL_FILE:?Run local-ai prepare a3b first}
+        target: /models/qwen3_6_35b_a3b.ninfer
+        read_only: true
+    command:
+      - ninfer-serve
+      - /models/qwen3_6_35b_a3b.ninfer
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --model-id
+      - qwen3.6-35b-a3b-ninfer-groupwise-int-262144
+      - --max-context
+      - ${QWEN_CONTEXT_LENGTH:-262144}
+      - --kv-capacity
+      - ${QWEN_KV_CAPACITY:-262144}
+      - --max-concurrency
+      - "1"
+      - --prefill-chunk
+      - "1024"
+      - --kv-dtype
+      - int8
+      - --device-state-slots
+      - "1"
+      - --host-state-slots
+      - "4"
+      - --host-kv-mib
+      - "4096"
+      - --spec
+      - mtp
+      - --draft-tokens
+      - "3"
+      - --lm-head-draft
+      - --preserve-thinking
+      - --vision

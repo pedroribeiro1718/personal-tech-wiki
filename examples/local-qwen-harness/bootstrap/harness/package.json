@@ -6,12 +6,15 @@
       "bundles": [
         "@deepseek-ai/dsh-base",
         "@deepseek-ai/dsh-web-app",
-        "dsh-better-markdown"
+        "dsh-better-markdown",
+        "dsh-searxng"
       ]
     }
   },
   "dependencies": {
     "@deepseek-ai/dsh-mcp-client": "0.1.1-rc.2",
+    "@j0hanz/fetch-url-mcp": "1.13.0",
+    "dsh-searxng": "0.2.1",
     "dsh-better-markdown": "0.1.2"
   }
 }

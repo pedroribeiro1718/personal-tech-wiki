@@ -15,17 +15,6 @@ llm-pi-ai:
           input:
             - text
             - image
-        - id: qwen3.8-27b-vllm-exl3-k5k6-262144
-          name: Qwen 3.8 27B · vLLM · EXL3 K5/K6 · 262,144
-          contextWindow: 262144
-          input:
-            - text
-            - image
-        - id: qwen3.8-27b-ninfer-nvfp4-252928
-          name: Qwen 3.8 27B · NInfer · NVFP4 · 252,928
-          contextWindow: 252928
-          input:
-            - text
 agent-default-model:
   provider: qwen-local
   model: qwen3.8-27b-sglang-nvfp4-122880

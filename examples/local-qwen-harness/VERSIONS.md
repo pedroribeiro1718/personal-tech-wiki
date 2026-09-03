@@ -14,6 +14,11 @@ Captured on 2026-09-03 from the working RTX 5090 setup.
 | vLLM/EXL3 runtime overlays | `malaiwah/qwen38-27b-exl3` commit `8558b8ca3bba028f852f4b53167b79b4cd552f93`; four file hashes are enforced by `local-ai` |
 | NInfer source | `Neroued/ninfer` commit `a140e7ae82a11ed2f370a4d8f2cc16268a3790b8` |
 | NInfer model artifact | `neroued/Qwen3.8-27B-nvfp4-NInfer` revision `204e3d92c30d9d05f3300d2f52e443ad1edf6ddf`; `qwen3_8_27b_nvfp4.ninfer`, 21,492,695,040 bytes, SHA-256 `bb3360522a06e136e0367f5703414d26272b7285c8a6ab6194135c17dbd81b32` |
+| llama.cpp CUDA image | `ghcr.io/ggml-org/llama.cpp:server-cuda13@sha256:a2ab5286ee0c01adfdb74b4bbe3439ff6c23d97596a4569dcfe487dd9d8e17ce` |
+| Unsloth dynamic model | `unsloth/Qwen3.8-27B-GGUF` revision `4ca720788d1e01f1bff70c033e0d0028fd02e502`; `Qwen3.8-27B-UD-Q4_K_XL.gguf`, 17,559,178,144 bytes, SHA-256 `3f227079003add2511437e5b1e94812e363385225bf6a9b47b0054a72bc8b01e` |
+| Unsloth vision projector | same revision; `mmproj-BF16.gguf`, 931,146,432 bytes, SHA-256 `83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53` |
+| Unsloth MTP model | same revision; `MTP/mtp-Qwen3.8-27B-Q4_0.gguf`, 1,369,590,656 bytes, SHA-256 `50d9ce5a6da381bbcfb31061cf73df94a90e6faf8efeddee379a9cb8f1501c6e` |
+| Qwen3.6 A3B NInfer artifact | `neroued/Qwen3.6-35B-A3B-NInfer` revision `3d960f7b670ea706105571a822334a1f09759271`; `qwen3_6_35b_a3b_groupwise_int.ninfer`, 22,783,246,080 bytes, SHA-256 `1fb9ea0b5b8561e49d9604115ec89e5d9f2b6f6434e32c37c57fffd480a325d2` |
 | NInfer CUDA build base | `nvidia/cuda:13.1.2-devel-ubuntu24.04@sha256:952e42d23230610a2714c8484f38e9c934ed68e6f9c9c7fac62dcd5f98858a6e` |
 | NInfer CUDA runtime base | `nvidia/cuda:13.1.2-runtime-ubuntu24.04@sha256:f0a6b69a753c1718da17e0d8864cd15c559960c6b68d4045c2d4d2bad0e6a87f` |
 | SearXNG image | `searxng/searxng:latest@sha256:8486daaebc65adacfe434be38b991cf90da92d3fd80ae9f0ab1409ba65664e28` |
@@ -21,10 +26,9 @@ Captured on 2026-09-03 from the working RTX 5090 setup.
 | DeepSeek Harness | `@deepseek-ai/dsh@0.1.1-rc.2` |
 | Harness MCP client | `@deepseek-ai/dsh-mcp-client@0.1.1-rc.2` |
 | Harness Markdown/Mermaid renderer | `dsh-better-markdown@0.1.2` (bundles Mermaid `11.16.1`) |
+| Harness SearXNG provider | `dsh-searxng@0.2.1` |
+| Public-page MCP server | `@j0hanz/fetch-url-mcp@1.13.0` |
 | GitHub MCP server | `ghcr.io/github/github-mcp-server:v1.11.0@sha256:48b071b92a297eb9b8ddb8dd87ccb4c75dbca6b0867eff034de4148722e0d164` |
-| Local SearXNG MCP adapter | `1.1.0` |
-| MCP SDK | `@modelcontextprotocol/sdk@2.0.0` |
-| Zod | `4.5.4` |
 
 Image and model pins are deliberate. Update them only after testing; otherwise a
 fresh installation could silently behave differently from this one.
