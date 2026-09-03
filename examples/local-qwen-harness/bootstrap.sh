@@ -6,12 +6,17 @@ DSH_DIR="${DSH_DIR:-${HOME}/.dsh}"
 PROFILE_DIR="${DSH_DIR}/profiles/web"
 BIN_DIR="${HOME}/.local/bin"
 
-for command_name in docker node pnpm curl sed openssl; do
+for command_name in docker node pnpm curl sed openssl systemctl systemd-run journalctl; do
   if ! command -v "${command_name}" >/dev/null 2>&1; then
     printf 'Missing prerequisite: %s\n' "${command_name}" >&2
     exit 1
   fi
 done
+
+if ! systemctl --user show-environment >/dev/null 2>&1; then
+  printf 'A running systemd user manager is required for background Harness control.\n' >&2
+  exit 1
+fi
 
 if ! docker compose version >/dev/null 2>&1; then
   printf 'Docker Compose v2 is required (the `docker compose` command).\n' >&2
@@ -70,7 +75,9 @@ Bootstrap complete. Nothing was started and nothing is configured for autostart.
 
 Manual commands:
   ${BIN_DIR}/local-ai start
-  ${BIN_DIR}/local-ai model-stop
-  ${BIN_DIR}/local-ai model-start
+  ${BIN_DIR}/local-ai stop qwen
+  ${BIN_DIR}/local-ai start qwen
+  ${BIN_DIR}/local-ai stop
   ${BIN_DIR}/local-ai status
+  ${BIN_DIR}/local-ai logs
 EOF

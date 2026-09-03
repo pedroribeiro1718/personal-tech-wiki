@@ -13,6 +13,7 @@ Prerequisites:
 - NVIDIA driver working in `nvidia-smi`
 - Docker Engine, Docker Compose v2, and NVIDIA Container Toolkit
 - Node.js, pnpm, curl, sed, and OpenSSL
+- a running systemd user manager (`systemctl --user`)
 
 From this directory, run:
 
@@ -28,19 +29,24 @@ Existing Harness files that differ are retained as `*.before-local-ai`.
 ## Service commands
 
 ```bash
-local-ai start
+local-ai start                   # all three
+local-ai start qwen harness      # any additive subset
 local-ai status
-local-ai model-stop
-local-ai model-start
-local-ai stop
+local-ai logs
+local-ai stop qwen               # release VRAM only
+local-ai start qwen              # reload the model only
+local-ai stop                    # all three
 ```
 
-`local-ai start` launches SearXNG and Qwen, waits for the model endpoint, then
-runs the Harness UI in the foreground. Keep that terminal open and use Ctrl+C
-to stop the UI. Both Docker services use `restart: "no"`.
+The valid targets are `qwen`, `harness`, and `searxng`; list one or several in
+any order. With no targets, `start` and `stop` operate on all three. Harness
+runs as a transient user-systemd service, and `local-ai logs` reads its journal.
+The transient unit provides reliable process-tree cleanup without installing or
+enabling a boot service. Nothing starts at boot, and both Docker services use
+`restart: "no"`.
 
-`local-ai model-stop` stops only Qwen and releases its CUDA allocation.
-SearXNG may remain available. `local-ai model-start` loads Qwen again.
+`local-ai stop qwen` releases its CUDA allocation while leaving Harness and
+SearXNG alone. `model-start` and `model-stop` remain as compatibility aliases.
 
 The SearXNG browser interface is available at
 `http://127.0.0.1:8888`.

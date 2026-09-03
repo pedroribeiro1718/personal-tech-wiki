@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 STACK_DIR="$(cd -- "$(dirname -- "${SCRIPT_PATH}")" && pwd)"
@@ -7,6 +8,7 @@ QWEN_CONTAINER="qwen38"
 QWEN_URL="http://127.0.0.1:30000/v1/models"
 HARNESS_URL="http://127.0.0.1:3080"
 DSH_PACKAGE="@deepseek-ai/dsh@0.1.1-rc.2"
+HARNESS_UNIT="local-qwen-harness.service"
 
 start_qwen() {
   if docker container inspect "${QWEN_CONTAINER}" >/dev/null 2>&1; then
@@ -30,15 +32,105 @@ wait_for_qwen() {
   return 1
 }
 
-start_stack() {
-  docker compose -f "${STACK_DIR}/compose.yaml" up -d searxng
-  start_qwen
-  wait_for_qwen
-  printf 'Starting Harness: %s\n' "${HARNESS_URL}"
-  printf 'Keep this terminal open; press Ctrl+C to stop Harness.\n'
-  export QWEN_LOCAL_API_KEY="${QWEN_LOCAL_API_KEY:-local-no-key}"
-  cd "${HOME}"
-  exec pnpm dlx "${DSH_PACKAGE}" web --no-open
+start_harness() {
+  local pnpm_bin
+
+  if systemctl --user is-active --quiet "${HARNESS_UNIT}"; then
+    printf 'Harness is already running: %s\n' "${HARNESS_URL}"
+    return 0
+  fi
+
+  if curl -fsS --max-time 2 "${HARNESS_URL}" >/dev/null 2>&1; then
+    printf 'Port 3080 already has an unmanaged Harness listener; refusing to start a duplicate.\n' >&2
+    return 1
+  fi
+
+  pnpm_bin="$(command -v pnpm)"
+  systemctl --user reset-failed "${HARNESS_UNIT}" >/dev/null 2>&1 || true
+  printf 'Starting Harness in the background: %s\n' "${HARNESS_URL}"
+  systemd-run --user --quiet --collect \
+    --unit="${HARNESS_UNIT}" \
+    --property=Type=exec \
+    --property=KillMode=control-group \
+    --property=TimeoutStopSec=15 \
+    --working-directory="${HOME}" \
+    --setenv="QWEN_LOCAL_API_KEY=${QWEN_LOCAL_API_KEY:-local-no-key}" \
+    "${pnpm_bin}" dlx "${DSH_PACKAGE}" web --no-open
+
+  for _ in $(seq 1 30); do
+    if ! systemctl --user is-active --quiet "${HARNESS_UNIT}"; then
+      printf 'Harness exited during startup. Recent log output:\n' >&2
+      journalctl --user -u "${HARNESS_UNIT}" -n 40 --no-pager >&2 || true
+      return 1
+    fi
+    if curl -fsS --max-time 2 "${HARNESS_URL}" >/dev/null 2>&1; then
+      printf 'Harness is ready. View logs with: local-ai logs\n'
+      return 0
+    fi
+    sleep 1
+  done
+
+  printf 'Harness did not become ready within 30 seconds. Run: local-ai logs\n' >&2
+  return 1
+}
+
+stop_harness() {
+  if ! systemctl --user is-active --quiet "${HARNESS_UNIT}"; then
+    if curl -fsS --max-time 2 "${HARNESS_URL}" >/dev/null 2>&1; then
+      printf 'Harness is running but is not managed by this helper; leaving it untouched.\n' >&2
+      return 1
+    fi
+    printf 'Harness is already stopped.\n'
+    return 0
+  fi
+
+  systemctl --user stop "${HARNESS_UNIT}"
+  printf 'Harness stopped.\n'
+}
+
+validate_targets() {
+  local target_name
+
+  for target_name in "$@"; do
+    case "${target_name}" in
+      qwen|harness|searxng|all) ;;
+      *)
+        printf 'Unknown target: %s (expected qwen, harness, searxng, or all)\n' "${target_name}" >&2
+        return 2
+        ;;
+    esac
+  done
+}
+
+target_requested() {
+  local requested_target="$1"
+  local target_name
+  shift
+
+  for target_name in "$@"; do
+    if [[ "${target_name}" == "${requested_target}" || "${target_name}" == "all" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+start_targets() {
+  if (( $# == 0 )); then
+    set -- all
+  fi
+  validate_targets "$@"
+
+  if target_requested searxng "$@"; then
+    docker compose -f "${STACK_DIR}/compose.yaml" up -d searxng
+  fi
+  if target_requested qwen "$@"; then
+    start_qwen
+    wait_for_qwen
+  fi
+  if target_requested harness "$@"; then
+    start_harness
+  fi
 }
 
 model_start() {
@@ -51,16 +143,43 @@ model_stop() {
   printf 'Qwen stopped. Its CUDA allocation has been released.\n'
 }
 
-stop_services() {
-  docker stop "${QWEN_CONTAINER}" >/dev/null 2>&1 || true
-  docker compose -f "${STACK_DIR}/compose.yaml" down
-  printf 'Qwen and SearXNG are stopped. Stop Harness with Ctrl+C in its terminal.\n'
+stop_targets() {
+  local stop_result=0
+
+  if (( $# == 0 )); then
+    set -- all
+  fi
+  validate_targets "$@"
+
+  if target_requested harness "$@"; then
+    stop_harness || stop_result=$?
+  fi
+  if target_requested qwen "$@"; then
+    docker stop "${QWEN_CONTAINER}" >/dev/null 2>&1 || true
+    printf 'Qwen stopped; its CUDA allocation has been released.\n'
+  fi
+  if target_requested searxng "$@"; then
+    docker compose -f "${STACK_DIR}/compose.yaml" stop searxng >/dev/null
+    printf 'SearXNG stopped.\n'
+  fi
+  return "${stop_result}"
 }
 
 status() {
+  if systemctl --user is-active --quiet "${HARNESS_UNIT}"; then
+    printf 'Harness: running at %s\n\n' "${HARNESS_URL}"
+  elif curl -fsS --max-time 2 "${HARNESS_URL}" >/dev/null 2>&1; then
+    printf 'Harness: responding at %s, but not managed by this helper\n\n' "${HARNESS_URL}"
+  else
+    printf 'Harness: stopped\n\n'
+  fi
   docker ps -a --filter "name=^/${QWEN_CONTAINER}$" --filter "name=^/qwen-searxng$" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
   printf '\nGPU processes:\n'
   nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null || true
+}
+
+logs() {
+  journalctl --user -u "${HARNESS_UNIT}" -n 100 --no-pager
 }
 
 usage() {
@@ -68,19 +187,22 @@ usage() {
 Usage: local-ai COMMAND
 
 Commands:
-  start        Start SearXNG and Qwen, wait for Qwen, then run Harness
+  start [TARGET ...]  Start selected targets; no targets means all
+  stop [TARGET ...]   Stop selected targets; no targets means all
+                      Targets: qwen, harness, searxng, all
   model-start  Load Qwen onto the GPU without starting Harness
   model-stop   Stop Qwen and release its GPU memory
-  stop         Stop Qwen and SearXNG (Harness is stopped with Ctrl+C)
-  status       Show container and GPU-process status
+  status       Show Harness, container, and GPU-process status
+  logs         Show the last 100 lines of the Harness log
 EOF
 }
 
 case "${1:-}" in
-  start) start_stack ;;
+  start) shift; start_targets "$@" ;;
   model-start) model_start ;;
   model-stop) model_stop ;;
-  stop) stop_services ;;
+  stop) shift; stop_targets "$@" ;;
   status) status ;;
+  logs) logs ;;
   *) usage; exit 2 ;;
 esac

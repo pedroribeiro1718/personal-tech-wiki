@@ -21,6 +21,7 @@ Install and verify:
 2. Docker Engine and Docker Compose v2.
 3. NVIDIA Container Toolkit configured for Docker.
 4. Node.js 20 or newer, pnpm, curl, sed, and OpenSSL.
+5. A running systemd user manager (`systemctl --user`).
 
 Then:
 
@@ -42,21 +43,33 @@ the pinned main and draft snapshots into the Docker volume.
 ## Everyday use
 
 ```bash
-# Start SearXNG + Qwen, wait for Qwen, then run Harness in this terminal
+# Start all three components
 local-ai start
 
-# Inspect container and GPU usage
+# Or start/stop any additive subset, in any order
+local-ai start qwen harness
+local-ai stop harness searxng
+
+# Inspect Harness, container, and GPU status
 local-ai status
 
-# Release the model's VRAM without deleting its cache or configuration
-local-ai model-stop
+# Inspect recent Harness output
+local-ai logs
+
+# Release VRAM without touching Harness or SearXNG
+local-ai stop qwen
 
 # Load it again
-local-ai model-start
+local-ai start qwen
 
-# Stop Qwen and SearXNG; use Ctrl+C for Harness
+# Stop Harness, Qwen, and SearXNG
 local-ai stop
 ```
+
+Harness runs as a transient user-systemd service so its complete process tree
+can be stopped reliably. It is created only by the manual command and is not
+enabled at boot. Valid targets are `qwen`, `harness`, and `searxng`; omitting
+targets means all three.
 
 The direct GPU-unload command is `docker stop qwen38`. The next
 `docker start qwen38` reloads the cached model.
