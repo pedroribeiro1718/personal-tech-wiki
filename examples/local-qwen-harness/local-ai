@@ -396,24 +396,33 @@ start_harness() {
   return 1
 }
 
-sync_harness_context() {
+sync_harness_model() {
   local recipe="$1"
-  local sglang_context=122880
-  local exl3_context=262144
-  local ninfer_context=252928
   local active_context
+  local active_id
+  local active_name
+  local active_vision
   local temp_settings
 
-  if (( DESKTOP_USE )); then
-    case "${recipe}" in
-      exl3) exl3_context=155648 ;;
-      ninfer) ninfer_context=172032 ;;
-    esac
-  fi
   case "${recipe}" in
-    sglang) active_context="${sglang_context}" ;;
-    exl3) active_context="${exl3_context}" ;;
-    ninfer) active_context="${ninfer_context}" ;;
+    sglang)
+      active_id='qwen3.8-27b-sglang-nvfp4-122880'
+      active_name='Qwen 3.8 27B · SGLang · NVFP4 · 122,880'
+      active_context=122880
+      active_vision=1
+      ;;
+    exl3)
+      active_id='qwen3.8-27b-vllm-exl3-k5k6-262144'
+      active_name='Qwen 3.8 27B · vLLM · EXL3 K5/K6 · 262,144'
+      active_context=$(( DESKTOP_USE ? 155648 : 262144 ))
+      active_vision=1
+      ;;
+    ninfer)
+      active_id='qwen3.8-27b-ninfer-nvfp4-252928'
+      active_name='Qwen 3.8 27B · NInfer · NVFP4 · 252,928'
+      active_context=$(( DESKTOP_USE ? 172032 : 252928 ))
+      active_vision=0
+      ;;
   esac
 
   if [[ ! -f "${HARNESS_SETTINGS}" ]]; then
@@ -424,43 +433,59 @@ sync_harness_context() {
 
   temp_settings="$(mktemp "${HARNESS_SETTINGS}.local-ai.XXXXXX")"
   if ! awk \
-    -v sglang_id='qwen3.8-27b-sglang-nvfp4-122880' \
-    -v exl3_id='qwen3.8-27b-vllm-exl3-k5k6-262144' \
-    -v ninfer_id='qwen3.8-27b-ninfer-nvfp4-252928' \
-    -v sglang_context="${sglang_context}" \
-    -v exl3_context="${exl3_context}" \
-    -v ninfer_context="${ninfer_context}" '
+    -v active_id="${active_id}" \
+    -v active_name="${active_name}" \
+    -v active_context="${active_context}" \
+    -v active_vision="${active_vision}" '
+      function print_model() {
+        print "      models:"
+        print "        - id: " active_id
+        print "          name: " active_name
+        print "          contextWindow: " active_context
+        print "          input:"
+        print "            - text"
+        if (active_vision) print "            - image"
+      }
       {
         stripped = $0
         sub(/^[[:space:]]*/, "", stripped)
-        if (stripped == "- id: " sglang_id) current = "sglang"
-        else if (stripped == "- id: " exl3_id) current = "exl3"
-        else if (stripped == "- id: " ninfer_id) current = "ninfer"
-        else if (stripped ~ /^- id: /) current = ""
 
-        if (current != "" && stripped ~ /^contextWindow:[[:space:]]*/) {
+        if (!models_done && $0 == "      models:") {
+          print_model()
+          models_done++
+          skipping_models = 1
+          next
+        }
+        if (skipping_models) {
+          if ($0 == "agent-default-model:") {
+            skipping_models = 0
+            in_default = 1
+            print
+          }
+          next
+        }
+        if ($0 == "agent-default-model:") in_default = 1
+        if (in_default && stripped ~ /^model:[[:space:]]*/) {
           match($0, /^[[:space:]]*/)
-          value = current == "sglang" ? sglang_context : \
-            (current == "exl3" ? exl3_context : ninfer_context)
-          print substr($0, 1, RLENGTH) "contextWindow: " value
-          seen[current]++
-          current = ""
+          print substr($0, 1, RLENGTH) "model: " active_id
+          default_done++
+          in_default = 0
           next
         }
         print
       }
       END {
-        if (seen["sglang"] != 1 || seen["exl3"] != 1 || seen["ninfer"] != 1) exit 42
+        if (models_done != 1 || default_done != 1) exit 42
       }
     ' "${HARNESS_SETTINGS}" >"${temp_settings}"; then
     rm -f -- "${temp_settings}"
-    printf 'Could not safely update Harness model capacities in %s; run ./bootstrap.sh.\n' \
+    printf 'Could not safely update the Harness model catalog in %s; run ./bootstrap.sh.\n' \
       "${HARNESS_SETTINGS}" >&2
     return 1
   fi
   chmod --reference="${HARNESS_SETTINGS}" "${temp_settings}" 2>/dev/null || chmod 0600 "${temp_settings}"
   mv -- "${temp_settings}" "${HARNESS_SETTINGS}"
-  printf 'Harness context metadata synchronized for %s (%s tokens).\n' \
+  printf 'Harness catalog synchronized for %s only (%s tokens).\n' \
     "${recipe}" "${active_context}"
 }
 
@@ -587,7 +612,7 @@ start_targets() {
       exl3) start_qwen_full ;;
       ninfer) start_qwen_ninfer ;;
     esac
-    sync_harness_context "${recipe}"
+    sync_harness_model "${recipe}"
   fi
   if target_requested harness "$@"; then
     start_harness
@@ -696,6 +721,7 @@ DESKTOP CONTEXT is selected by --desktop-use. SGLang is unchanged because its
 normal profile is already suitable for desktop use. EXL3 and NInfer reserve
 roughly 5 GiB of VRAM for the graphical desktop. Only one recipe runs at a time;
 all expose their OpenAI-compatible API at http://127.0.0.1:30000/v1.
+Harness lists only the recipe most recently started with the qwen target.
 EOF
 }
 

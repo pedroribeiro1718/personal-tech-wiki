@@ -106,10 +106,11 @@ enabled at boot. Valid targets are `qwen`, `harness`, and `searxng`; Qwen's
 recipe values are `sglang` (default), `exl3`, and `ninfer`. Omitting targets
 starts the selected recipe plus Harness and SearXNG. `local-ai stop qwen`
 stops every recipe unless a specific `--recipe` is supplied. Only one recipe
-can use the single GPU at a time. Harness gives undocumented custom models a
-262,144-token fallback instead of deriving limits from `/v1/models`; the
-committed settings declare the real capacities, and every successful
-`local-ai start ... qwen` hot-synchronizes the active normal/desktop value.
+can use the single GPU at a time. Harness neither filters its static catalog by
+the loaded model nor reliably derives custom limits from `/v1/models`. The
+committed template retains all three definitions for recovery; every successful
+`local-ai start ... qwen` replaces the live catalog and default with only the
+active recipe and its actual normal/desktop capacity.
 Use `local-ai recipes` to print each canonical served ID, engine, weight/KV
 formats, context limits, vision support, and speculative-decoding method.
 
@@ -224,9 +225,9 @@ updating them.
 
 Harness does not reliably infer modalities or capacity from an
 OpenAI-compatible `/v1/models` response. The custom route therefore declares
-`input` and `contextWindow` in `bootstrap/harness/settings.yaml`. The helper
-updates only those declared context values atomically when switching profiles;
-Harness hot-reloads the file. This exact endpoint was verified with a PNG;
+`input` and `contextWindow` in `bootstrap/harness/settings.yaml`. When switching
+profiles, the helper atomically publishes only the active definition to the
+live settings; Harness hot-reloads the file. This exact endpoint was verified with a PNG;
 SGLang returned HTTP 200 and accounted for image tokens.
 
 Search results come from the local SearXNG MCP tool. The companion `fetch_page`

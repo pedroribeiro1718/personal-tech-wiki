@@ -71,12 +71,13 @@ enabling a boot service. Nothing starts at boot, and all Docker services use
 `restart: "no"`.
 
 `local-ai stop qwen` releases its CUDA allocation while leaving Harness and
-SearXNG alone. Only one Qwen recipe can use the single GPU at a time. Select the
-matching model in Harness after starting an alternate recipe. Harness does not
-infer a custom model's context limit from this endpoint: its fallback is 262,144.
-The bootstrap settings therefore declare all three limits explicitly, and
-`local-ai start ... qwen` hot-synchronizes the active desktop/full value in
-`~/.dsh/settings.yaml` without restarting Harness.
+SearXNG alone. Only one Qwen recipe can use the single GPU at a time. Harness
+does not infer model availability or custom context limits from this endpoint.
+The bootstrap template retains all three definitions for recovery, while
+`local-ai start ... qwen` atomically replaces the live catalog and default with
+only the active recipe and its actual normal/desktop capacity. Harness
+hot-reloads `~/.dsh/settings.yaml`; no restart or manual model selection is
+needed.
 
 `local-ai dashboard` opens a dependency-free terminal dashboard with Overview,
 Qwen log, Harness log, SearXNG log, and GPU tabs. Use `Tab` or `1`–`5` to switch,
