@@ -21,6 +21,7 @@ CONTAINERS = {
 TABS = ("Overview", "Qwen log", "Harness log", "SearXNG log", "GPU")
 LOG_TABS = {1, 2, 3}
 ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+COLORS = False
 
 
 def command(args: list[str], timeout: float = 4) -> str:
@@ -56,7 +57,8 @@ def active_qwen() -> tuple[str, str, str]:
 
 
 def unit_state() -> str:
-    return command(["systemctl", "--user", "is-active", "local-qwen-harness.service"])
+    state = command(["systemctl", "--user", "is-active", "local-qwen-harness.service"])
+    return state if state in {"active", "reloading", "inactive", "failed", "activating", "deactivating"} else "unavailable"
 
 
 def api_model() -> tuple[str, str]:
@@ -69,19 +71,30 @@ def api_model() -> tuple[str, str]:
         return "unavailable", "unknown"
 
 
-def gpu_metrics() -> list[str]:
+def grid_row(*cells: object) -> str:
+    offsets = (2, 20, 36, 60)
+    line = ""
+    for index, (offset, cell) in enumerate(zip(offsets, cells)):
+        value = str(cell)
+        if index + 1 < len(cells):
+            value = value[: offsets[index + 1] - offset - 1]
+        line = line.ljust(offset) + value
+    return line.rstrip()
+
+
+def gpu_metrics() -> list[tuple[str, str]]:
     query = "memory.used,memory.total,utilization.gpu,temperature.gpu,power.draw,power.limit"
     raw = command(["nvidia-smi", f"--query-gpu={query}", "--format=csv,noheader,nounits"])
     try:
         used, total, util, temp, power, limit = [part.strip() for part in raw.split(",")]
         return [
-            f"VRAM             {int(float(used)):,} / {int(float(total)):,} MiB",
-            f"GPU utilization   {util}%",
-            f"Temperature       {temp} C",
-            f"Power             {float(power):.0f} / {float(limit):.0f} W",
+            ("VRAM", f"{int(float(used)):,} / {int(float(total)):,} MiB"),
+            ("GPU utilization", f"{util}%"),
+            ("Temperature", f"{temp} C"),
+            ("Power", f"{float(power):.0f} / {float(limit):.0f} W"),
         ]
     except (ValueError, TypeError):
-        return [raw or "GPU metrics unavailable"]
+        return [("Metrics", raw or "unavailable")]
 
 
 def overview() -> list[str]:
@@ -95,22 +108,26 @@ def overview() -> list[str]:
             "--format=csv,noheader",
         ]
     )
+    process_rows = []
+    for process in processes.splitlines():
+        parts = [part.strip() for part in process.split(",", 2)]
+        process_rows.append(grid_row(*parts) if len(parts) == 3 else grid_row("unavailable", process))
     return [
         " SERVICES",
-        f"  Qwen       {qwen_state:<10} {container:<18} http://127.0.0.1:30000/v1",
-        f"  Harness    {unit_state():<10} {'user systemd':<18} http://127.0.0.1:3080",
-        f"  SearXNG    {searxng:<10} {'qwen-searxng':<18} http://127.0.0.1:8888",
+        grid_row("Qwen", qwen_state, container, "http://127.0.0.1:30000/v1"),
+        grid_row("Harness", unit_state(), "user systemd", "http://127.0.0.1:3080"),
+        grid_row("SearXNG", searxng, "qwen-searxng", "http://127.0.0.1:8888"),
         "",
         " MODEL",
-        f"  Recipe     {recipe}",
-        f"  ID         {model}",
-        f"  Context    {context} tokens",
+        grid_row("Recipe", recipe),
+        grid_row("ID", model),
+        grid_row("Context", f"{context} tokens"),
         "",
         " GPU",
-        *[f"  {line}" for line in gpu_metrics()],
+        *[grid_row(*metric) for metric in gpu_metrics()],
         "",
         " COMPUTE PROCESSES",
-        *[f"  {line}" for line in (processes.splitlines() or ["none"])],
+        *(process_rows or [grid_row("none")]),
     ]
 
 
@@ -151,6 +168,43 @@ def clean(line: str) -> str:
     return "".join(character for character in line if character.isprintable())
 
 
+def init_colors() -> None:
+    global COLORS
+    if not curses.has_colors():
+        return
+    curses.start_color()
+    background = curses.COLOR_BLACK
+    try:
+        curses.use_default_colors()
+        background = -1
+    except curses.error:
+        pass
+    for pair, foreground in enumerate(
+        (curses.COLOR_CYAN, curses.COLOR_GREEN, curses.COLOR_YELLOW, curses.COLOR_RED), 1
+    ):
+        curses.init_pair(pair, foreground, background)
+    COLORS = True
+
+
+def color(pair: int) -> int:
+    return curses.color_pair(pair) if COLORS else 0
+
+
+def content_style(line: str, tab: int) -> int:
+    label = line.strip()
+    lower = label.lower()
+    if label in {"SERVICES", "MODEL", "GPU", "COMPUTE PROCESSES"}:
+        return curses.A_BOLD | color(1)
+    if tab == 0 and line[2:20].strip() in {"Qwen", "Harness", "SearXNG"}:
+        state = line[20:36].strip()
+        return color(2 if state in {"running", "active"} else 3)
+    if any(word in lower for word in ("error", "failed", "traceback", "fatal")):
+        return color(4)
+    if any(word in lower for word in ("warn", "unavailable")):
+        return color(3)
+    return 0
+
+
 def wrapped(lines: list[str], width: int) -> list[str]:
     result: list[str] = []
     for line in lines:
@@ -173,14 +227,15 @@ def draw(screen: curses.window, title: str, tab: int, lines: list[str], top: int
         screen.refresh()
         return 0
 
-    put(screen, 0, 1, title, curses.A_BOLD)
+    put(screen, 0, 1, title, curses.A_BOLD | color(1))
     position = 1
     for index, name in enumerate(TABS):
         if index:
-            put(screen, 2, position, " | ", curses.A_DIM)
+            put(screen, 2, position, " | ", curses.A_DIM | color(1))
             position += 3
         label = f" {index + 1} {name} "
-        put(screen, 2, position, label, curses.A_REVERSE if index == tab else 0)
+        style = curses.A_REVERSE | curses.A_BOLD if index == tab else color(1)
+        put(screen, 2, position, label, style)
         position += len(label)
 
     content_height = height - 6
@@ -189,13 +244,15 @@ def draw(screen: curses.window, title: str, tab: int, lines: list[str], top: int
     if follow and tab in LOG_TABS:
         top = max(0, len(display) - content_height)
     top = min(max(0, top), max(0, len(display) - content_height))
-    put(screen, 3, 1, "+" + "-" * (width - 3) + "+")
+    border = curses.A_DIM | color(1)
+    put(screen, 3, 1, "+" + "-" * (width - 3) + "+", border)
     for offset in range(content_height):
-        put(screen, 4 + offset, 1, "|")
-        put(screen, 4 + offset, width - 2, "|")
+        put(screen, 4 + offset, 1, "|", border)
+        put(screen, 4 + offset, width - 2, "|", border)
         if top + offset < len(display):
-            put(screen, 4 + offset, 2, display[top + offset])
-    put(screen, height - 2, 1, "+" + "-" * (width - 3) + "+")
+            line = display[top + offset]
+            put(screen, 4 + offset, 2, line, content_style(line, tab))
+    put(screen, height - 2, 1, "+" + "-" * (width - 3) + "+", border)
     mode = "   [following]" if follow and tab in LOG_TABS else ""
     put(screen, height - 1, 1, f"Tab/1-5 view  Up/Down/Pg scroll  f follow  r refresh  q quit{mode}")
     screen.refresh()
@@ -207,6 +264,7 @@ def main(screen: curses.window) -> None:
         curses.curs_set(0)
     except curses.error:
         pass
+    init_colors()
     screen.timeout(200)
     tab, top, follow = 0, 0, True
     lines: list[str] = []

@@ -17,8 +17,8 @@ class DashboardTests(unittest.TestCase):
     @patch.object(dashboard, "command", return_value="1024, 32768, 80, 65, 400.5, 575.0")
     def test_gpu_metrics(self, _command):
         metrics = dashboard.gpu_metrics()
-        self.assertIn("1,024 / 32,768 MiB", metrics[0])
-        self.assertEqual(metrics[-1], "Power             400 / 575 W")
+        self.assertEqual(metrics[0], ("VRAM", "1,024 / 32,768 MiB"))
+        self.assertEqual(metrics[-1], ("Power", "400 / 575 W"))
 
     @patch.object(dashboard, "command", return_value="model ready")
     @patch.object(dashboard, "active_qwen", return_value=("ninfer", "qwen38-ninfer", "running"))
@@ -28,6 +28,10 @@ class DashboardTests(unittest.TestCase):
 
     def test_terminal_cleanup(self):
         self.assertEqual(dashboard.clean("\x1b[31mred\x1b[0m\ttext"), "red    text")
+
+    def test_grid_columns(self):
+        row = dashboard.grid_row("one", "two", "three", "four")
+        self.assertEqual([row.index(value) for value in ("one", "two", "three", "four")], [2, 20, 36, 60])
 
 
 if __name__ == "__main__":
