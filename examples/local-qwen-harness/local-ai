@@ -814,8 +814,7 @@ COMMANDS
   github-status     Check the isolated work-profile GitHub login
   dashboard         Open the interactive status, logs, and GPU dashboard
   status            Show Harness, container, and GPU-process status
-  logs [--work] [TARGET]
-                    Show 100 log lines for qwen, harness, or searxng
+  logs              Show 100 log lines for qwen, harness, or searxng
   help              Show this help
 
 OPTIONS
