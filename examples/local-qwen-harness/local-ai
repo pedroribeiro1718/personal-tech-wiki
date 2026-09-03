@@ -651,33 +651,63 @@ logs() {
   journalctl --user -u "${HARNESS_UNIT}" -n 100 --no-pager
 }
 
+recipes() {
+  cat <<'EOF'
+Available Qwen recipes
+
+  RECIPE    ENGINE   WEIGHTS       KV    MAX CONTEXT   DESKTOP CONTEXT   VISION   SPECULATION
+  sglang*   SGLang   NVFP4         FP8       122,880           122,880   yes      DSpark-7
+  exl3      vLLM     EXL3 K5/K6    FP8       262,144           155,648   yes      MTP-3
+  ninfer    NInfer   NVFP4         INT8      252,928           172,032   no       MTP-3
+
+  * Default recipe
+
+DESKTOP CONTEXT is selected by --desktop-use. SGLang is unchanged because its
+normal profile is already suitable for desktop use. EXL3 and NInfer reserve
+roughly 5 GiB of VRAM for the graphical desktop. Only one recipe runs at a time;
+all expose their OpenAI-compatible API at http://127.0.0.1:30000/v1.
+EOF
+}
+
 usage() {
   cat <<'EOF'
-Usage: local-ai COMMAND [OPTIONS] [TARGET ...]
+local-ai - manage the local Qwen stack
 
-Commands:
-  start [--recipe RECIPE] [--desktop-use] [TARGET ...]
-                      Start targets with the selected Qwen recipe
-  stop [--recipe RECIPE] [TARGET ...]
-                      Stop targets; without --recipe, qwen stops every recipe
-  prepare RECIPE      Prepare one Qwen recipe without starting it
-  model-start  Load Qwen onto the GPU without starting Harness
-  model-stop   Stop Qwen and release its GPU memory
-  status       Show Harness, container, and GPU-process status
-  logs         Show the last 100 lines of the Harness log
+USAGE
+  local-ai start [--recipe RECIPE] [--desktop-use] [TARGET ...]
+  local-ai stop [--recipe RECIPE] [TARGET ...]
+  local-ai prepare RECIPE
+  local-ai COMMAND
 
-Targets: qwen, harness, searxng, all
-Recipes: sglang (default), exl3, ninfer
---desktop-use keeps SGLang unchanged; for EXL3/NInfer it reserves roughly
-5 GiB for the graphical desktop and lowers context/prefill settings. It does
-not make gaming alongside the model viable.
+COMMANDS
+  start         Start one or more targets (defaults to all)
+  stop          Stop one or more targets (defaults to all)
+  prepare       Download/build one recipe without starting it
+  recipes       List recipes and their main characteristics
+  status        Show Harness, container, and GPU-process status
+  logs          Show the last 100 lines of the Harness log
+  model-start   Start the default Qwen recipe only (compatibility alias)
+  model-stop    Stop every Qwen recipe and release GPU memory (alias)
+  help          Show this help
 
-Examples:
+OPTIONS
+  --recipe RECIPE   Qwen recipe: sglang (default), exl3, or ninfer
+  --desktop-use     Reserve about 5 GiB of VRAM with EXL3/NInfer; SGLang is
+                    unchanged. This does not make gaming alongside Qwen viable.
+
+TARGETS
+  qwen              Model server at http://127.0.0.1:30000/v1
+  harness           DeepSeek Harness at http://127.0.0.1:3080
+  searxng           Private search service at http://127.0.0.1:8888
+  all               All three targets (the default when none are supplied)
+
+EXAMPLES
   local-ai start qwen harness
   local-ai start --recipe exl3 qwen harness
   local-ai start --recipe ninfer --desktop-use qwen harness searxng
   local-ai stop qwen
   local-ai prepare ninfer
+  local-ai recipes
 EOF
 }
 
@@ -706,5 +736,12 @@ case "${1:-}" in
     ;;
   status) status ;;
   logs) logs ;;
-  *) usage; exit 2 ;;
+  recipes) recipes ;;
+  help|-h|--help) usage ;;
+  "") usage; exit 2 ;;
+  *)
+    printf 'Unknown command: %s\n\n' "$1" >&2
+    usage >&2
+    exit 2
+    ;;
 esac

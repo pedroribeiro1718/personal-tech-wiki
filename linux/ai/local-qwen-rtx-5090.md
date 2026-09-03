@@ -78,6 +78,9 @@ local-ai start --recipe ninfer --desktop-use qwen harness
 # Inspect Harness, container, and GPU status
 local-ai status
 
+# Compare the available model recipes
+local-ai recipes
+
 # Inspect recent Harness output
 local-ai logs
 
@@ -101,6 +104,8 @@ can use the single GPU at a time. Harness gives undocumented custom models a
 262,144-token fallback instead of deriving limits from `/v1/models`; the
 committed settings declare the real capacities, and every successful
 `local-ai start ... qwen` hot-synchronizes the active normal/desktop value.
+Use `local-ai recipes` to print the engine, weight/KV formats, context limits,
+vision support, and speculative-decoding method for each recipe.
 
 The direct GPU-unload command is `docker stop qwen38`. The next
 `docker start qwen38` reloads the cached model.

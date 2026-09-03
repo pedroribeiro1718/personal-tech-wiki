@@ -48,6 +48,7 @@ local-ai prepare ninfer          # build pinned NInfer + fetch its 20.02-GiB art
 local-ai start --recipe ninfer qwen harness
 QWEN_FULL_MODEL=qwen3.8-27b-ninfer ./test-full-context.mjs 245000
 local-ai start --recipe ninfer --desktop-use qwen harness
+local-ai recipes                    # compare engines, formats, and context limits
 local-ai status
 local-ai logs
 local-ai stop qwen               # release VRAM only
@@ -57,6 +58,8 @@ local-ai stop                    # all three
 
 The valid targets are `qwen`, `harness`, and `searxng`; list one or several in
 any order. The Qwen recipe values are `sglang` (default), `exl3`, and `ninfer`.
+Run `local-ai recipes` for a compact comparison of their engines, weight and KV
+formats, normal/desktop context limits, vision, and speculative decoding.
 With no targets, `start` starts the selected Qwen recipe, Harness, and SearXNG.
 Without `--recipe`, `stop qwen` stops every recipe container. Harness runs as a
 transient user-systemd service, and
