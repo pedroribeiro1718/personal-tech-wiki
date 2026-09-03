@@ -110,7 +110,10 @@ can use the single GPU at a time. Harness neither filters its static catalog by
 the loaded model nor reliably derives custom limits from `/v1/models`. The
 committed template retains all three definitions for recovery; every successful
 `local-ai start ... qwen` replaces the live catalog and default with only the
-active recipe and its actual normal/desktop capacity.
+active recipe and its actual normal/desktop capacity. `stop qwen` retains that
+single last-used entry because Harness requires a default while the endpoint is
+offline. Start a new Harness session after switching recipes; existing sessions
+retain their original model selection.
 Use `local-ai recipes` to print each canonical served ID, engine, weight/KV
 formats, context limits, vision support, and speculative-decoding method.
 

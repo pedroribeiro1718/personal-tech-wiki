@@ -77,7 +77,9 @@ The bootstrap template retains all three definitions for recovery, while
 `local-ai start ... qwen` atomically replaces the live catalog and default with
 only the active recipe and its actual normal/desktop capacity. Harness
 hot-reloads `~/.dsh/settings.yaml`; no restart or manual model selection is
-needed.
+needed. `stop qwen` retains that single last-used entry because Harness requires
+a default even while the endpoint is offline. Start a new Harness session after
+switching recipes; an existing session retains the model it began with.
 
 `local-ai dashboard` opens a dependency-free terminal dashboard with Overview,
 Qwen log, Harness log, SearXNG log, and GPU tabs. Use `Tab` or `1`–`5` to switch,
