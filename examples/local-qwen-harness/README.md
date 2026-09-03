@@ -115,7 +115,7 @@ The profile is deliberately single-user: 262,144 context, FP8 KV, MTP-3,
 because the measured full-window-plus-vision profile does not have enough
 headroom for it. `gpu-memory-utilization=0.955` was qualified on one physical
 RTX 5090; if startup misses by a few MiB on this card, change it to `0.956` in
-`qwen-full.compose.yaml` and record that change here.
+`qwen-exl3.compose.yaml` and record that change here.
 
 Without `--desktop-use`, vLLM reserves 95.5% of the card. `local-ai` checks
 free VRAM and refuses to start unless that budget is available. On KDE,
@@ -192,7 +192,7 @@ Harness renders fenced `mermaid` blocks through
 rendering does not depend on a CDN. After restoring or changing the plugin,
 reload the Harness page once.
 
-See `qwen.compose.yaml`, `qwen-full.compose.yaml`, and
+See `qwen-sglang.compose.yaml`, `qwen-exl3.compose.yaml`, and
 `qwen-ninfer.compose.yaml` for every inference parameter, and `VERSIONS.md`
 for captured source/image/model revisions. Model caches are large and are not
 part of this bundle; a fresh machine downloads them separately.

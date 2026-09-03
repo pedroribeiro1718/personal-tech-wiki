@@ -139,7 +139,7 @@ This protects the driver from a repeat of the previous VRAM-exhaustion failure.
 
 The measured starting point is `gpu-memory-utilization=0.955`. RTX 5090 cards
 can differ by a few MiB; if startup says the KV allocation narrowly misses,
-raise it to `0.956` in `qwen-full.compose.yaml`. Prefix caching stays disabled
+raise it to `0.956` in `qwen-exl3.compose.yaml`. Prefix caching stays disabled
 because it does not fit alongside the native window and qualified vision
 ceiling on 32 GB. The test proves capacity plus basic retrieval, not general
 long-context reasoning.
@@ -174,7 +174,7 @@ its exact size and SHA-256. The model and build caches are not committed.
 ## Important pinned settings
 
 The authoritative command is
-[`qwen.compose.yaml`](../../examples/local-qwen-harness/qwen.compose.yaml).
+[`qwen-sglang.compose.yaml`](../../examples/local-qwen-harness/qwen-sglang.compose.yaml).
 Its main choices are:
 
 - main model: `gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090`

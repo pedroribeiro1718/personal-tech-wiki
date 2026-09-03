@@ -38,9 +38,9 @@ start_qwen() {
     QWEN_CONTEXT_LENGTH=98304 \
     QWEN_PREFILL_CHUNK=512 \
     QWEN_GPU_MEMORY_UTILIZATION=0.82 \
-      docker compose -f "${STACK_DIR}/qwen.compose.yaml" up -d qwen
+      docker compose -f "${STACK_DIR}/qwen-sglang.compose.yaml" up -d qwen
   else
-    docker compose -f "${STACK_DIR}/qwen.compose.yaml" up -d qwen
+    docker compose -f "${STACK_DIR}/qwen-sglang.compose.yaml" up -d qwen
   fi
 }
 
@@ -151,7 +151,7 @@ ensure_full_patches() {
 
 full_compose() {
   QWEN_FULL_PATCH_DIR="${QWEN_FULL_PATCH_DIR}" \
-    docker compose -f "${STACK_DIR}/qwen-full.compose.yaml" "$@"
+    docker compose -f "${STACK_DIR}/qwen-exl3.compose.yaml" "$@"
 }
 
 prepare_qwen_full() {
@@ -200,7 +200,7 @@ start_qwen_full() {
     QWEN_PREFILL_CHUNK=1024 \
     QWEN_GPU_MEMORY_UTILIZATION=0.85 \
     QWEN_MAX_PIXELS=4194304 \
-      docker compose -f "${STACK_DIR}/qwen-full.compose.yaml" up -d qwen-full
+      docker compose -f "${STACK_DIR}/qwen-exl3.compose.yaml" up -d qwen-full
   else
     full_compose up -d qwen-full
   fi
@@ -367,7 +367,7 @@ start_qwen_ninfer() {
 prepare_qwen_sglang() {
   docker volume inspect qwen38-hf-cache >/dev/null 2>&1 || \
     docker volume create qwen38-hf-cache >/dev/null
-  docker compose -f "${STACK_DIR}/qwen.compose.yaml" pull qwen
+  docker compose -f "${STACK_DIR}/qwen-sglang.compose.yaml" pull qwen
   printf 'sglang recipe is prepared. Nothing was started.\n'
 }
 
