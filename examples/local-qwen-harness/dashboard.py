@@ -179,9 +179,9 @@ def init_colors() -> None:
         background = -1
     except curses.error:
         pass
-    for pair, foreground in enumerate(
-        (curses.COLOR_CYAN, curses.COLOR_GREEN, curses.COLOR_YELLOW, curses.COLOR_RED), 1
-    ):
+    warning = 245 if curses.COLORS >= 256 else curses.COLOR_WHITE
+    error = 139 if curses.COLORS >= 256 else curses.COLOR_MAGENTA
+    for pair, foreground in enumerate((curses.COLOR_CYAN, curses.COLOR_GREEN, warning, error), 1):
         curses.init_pair(pair, foreground, background)
     COLORS = True
 
@@ -197,12 +197,16 @@ def content_style(line: str, tab: int) -> int:
         return curses.A_BOLD | color(1)
     if tab == 0 and line[2:20].strip() in {"Qwen", "Harness", "SearXNG"}:
         state = line[20:36].strip()
-        return color(2 if state in {"running", "active"} else 3)
+        return color(2) if state in {"running", "active"} else curses.A_DIM | color(3)
     if any(word in lower for word in ("error", "failed", "traceback", "fatal")):
-        return color(4)
+        return curses.A_DIM | color(4)
     if any(word in lower for word in ("warn", "unavailable")):
-        return color(3)
+        return curses.A_DIM | color(3)
     return 0
+
+
+def horizontal_border(width: int) -> str:
+    return "+" + "-" * max(0, width - 4) + "+"
 
 
 def wrapped(lines: list[str], width: int) -> list[str]:
@@ -245,14 +249,14 @@ def draw(screen: curses.window, title: str, tab: int, lines: list[str], top: int
         top = max(0, len(display) - content_height)
     top = min(max(0, top), max(0, len(display) - content_height))
     border = curses.A_DIM | color(1)
-    put(screen, 3, 1, "+" + "-" * (width - 3) + "+", border)
+    put(screen, 3, 1, horizontal_border(width), border)
     for offset in range(content_height):
         put(screen, 4 + offset, 1, "|", border)
         put(screen, 4 + offset, width - 2, "|", border)
         if top + offset < len(display):
             line = display[top + offset]
             put(screen, 4 + offset, 2, line, content_style(line, tab))
-    put(screen, height - 2, 1, "+" + "-" * (width - 3) + "+", border)
+    put(screen, height - 2, 1, horizontal_border(width), border)
     mode = "   [following]" if follow and tab in LOG_TABS else ""
     put(screen, height - 1, 1, f"Tab/1-5 view  Up/Down/Pg scroll  f follow  r refresh  q quit{mode}")
     screen.refresh()

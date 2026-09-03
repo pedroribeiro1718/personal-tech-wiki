@@ -33,6 +33,9 @@ class DashboardTests(unittest.TestCase):
         row = dashboard.grid_row("one", "two", "three", "four")
         self.assertEqual([row.index(value) for value in ("one", "two", "three", "four")], [2, 20, 36, 60])
 
+    def test_border_keeps_both_corners(self):
+        self.assertEqual(dashboard.horizontal_border(10), "+------+")
+
 
 if __name__ == "__main__":
     unittest.main()
