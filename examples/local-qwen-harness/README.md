@@ -49,8 +49,9 @@ local-ai start --recipe ninfer qwen harness
 QWEN_FULL_MODEL=qwen3.8-27b-ninfer ./test-full-context.mjs 245000
 local-ai start --recipe ninfer --desktop-use qwen harness
 local-ai recipes                    # compare engines, formats, and context limits
+local-ai dashboard                  # interactive services, logs, and GPU view
 local-ai status
-local-ai logs
+local-ai logs qwen                  # qwen, harness (default), or searxng
 local-ai stop qwen               # release VRAM only
 local-ai start qwen              # reload the model only
 local-ai stop                    # all three
@@ -75,6 +76,12 @@ infer a custom model's context limit from this endpoint: its fallback is 262,144
 The bootstrap settings therefore declare all three limits explicitly, and
 `local-ai start ... qwen` hot-synchronizes the active desktop/full value in
 `~/.dsh/settings.yaml` without restarting Harness.
+
+`local-ai dashboard` opens a dependency-free terminal dashboard with Overview,
+Qwen log, Harness log, SearXNG log, and GPU tabs. Use `Tab` or `1`–`5` to switch,
+arrow/Page keys to scroll, `f` to follow logs, `r` to refresh, and `q` to quit.
+The original `status` and targeted `logs [qwen|harness|searxng]` commands remain
+available for scripts and copyable diagnostics.
 
 ## Desktop-use mode
 

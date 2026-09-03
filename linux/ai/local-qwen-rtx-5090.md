@@ -81,8 +81,14 @@ local-ai status
 # Compare the available model recipes
 local-ai recipes
 
+# Open the interactive services, logs, and GPU dashboard
+local-ai dashboard
+
 # Inspect recent Harness output
 local-ai logs
+
+# Or inspect one component directly
+local-ai logs qwen
 
 # Release VRAM without touching Harness or SearXNG
 local-ai stop qwen
@@ -106,6 +112,12 @@ committed settings declare the real capacities, and every successful
 `local-ai start ... qwen` hot-synchronizes the active normal/desktop value.
 Use `local-ai recipes` to print the engine, weight/KV formats, context limits,
 vision support, and speculative-decoding method for each recipe.
+
+`local-ai dashboard` provides Overview, Qwen log, Harness log, SearXNG log, and
+GPU tabs using Python's standard-library terminal UI. Switch with `Tab` or
+`1`–`5`; scroll with arrow/Page keys; use `f` to follow, `r` to refresh, and `q`
+to quit. Keep `status` and `logs [qwen|harness|searxng]` for scripts and direct
+diagnostics.
 
 The direct GPU-unload command is `docker stop qwen38`. The next
 `docker start qwen38` reloads the cached model.

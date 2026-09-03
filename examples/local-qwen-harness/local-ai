@@ -639,7 +639,31 @@ status() {
 }
 
 logs() {
-  journalctl --user -u "${HARNESS_UNIT}" -n 100 --no-pager
+  local target="${1:-harness}"
+  local container_name
+
+  case "${target}" in
+    harness)
+      journalctl --user -u "${HARNESS_UNIT}" -n 100 --no-pager
+      ;;
+    qwen)
+      for container_name in "${QWEN_CONTAINER}" "${QWEN_FULL_CONTAINER}" "${QWEN_NINFER_CONTAINER}"; do
+        if container_running "${container_name}"; then
+          docker logs --tail 100 "${container_name}"
+          return
+        fi
+      done
+      printf 'No Qwen recipe is running.\n' >&2
+      return 1
+      ;;
+    searxng)
+      docker logs --tail 100 qwen-searxng
+      ;;
+    *)
+      printf 'Unknown log target: %s (expected qwen, harness, or searxng)\n' "${target}" >&2
+      return 2
+      ;;
+  esac
 }
 
 recipes() {
@@ -675,8 +699,9 @@ COMMANDS
   stop              Stop one or more targets (defaults to all)
   prepare           Download/build one recipe without starting it
   recipes           List recipes and their main characteristics
+  dashboard         Open the interactive status, logs, and GPU dashboard
   status            Show Harness, container, and GPU-process status
-  logs              Show the last 100 lines of the Harness log
+  logs [TARGET]     Show 100 log lines for qwen, harness, or searxng
   help              Show this help
 
 OPTIONS
@@ -697,6 +722,7 @@ EXAMPLES
   local-ai stop qwen
   local-ai prepare ninfer
   local-ai recipes
+  local-ai dashboard
 EOF
 }
 
@@ -722,7 +748,16 @@ case "${1:-}" in
     stop_targets "${SELECTED_RECIPE}" "${PARSED_TARGETS[@]}"
     ;;
   status) status ;;
-  logs) logs ;;
+  logs)
+    shift
+    (( $# <= 1 )) || { usage >&2; exit 2; }
+    logs "${1:-harness}"
+    ;;
+  dashboard)
+    shift
+    (( $# == 0 )) || { usage >&2; exit 2; }
+    exec python3 "${STACK_DIR}/dashboard.py"
+    ;;
   recipes) recipes ;;
   help|-h|--help) usage ;;
   "") usage; exit 2 ;;
