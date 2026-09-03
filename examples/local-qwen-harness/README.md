@@ -72,7 +72,7 @@ model in Harness after starting an alternate recipe.
 
 ## Desktop-use mode
 
-Add `--desktop-use` when starting Qwen to retain roughly 6 GiB of the card for
+Add `--desktop-use` when starting Qwen to retain roughly 5 GiB of the card for
 KDE and accelerated browser workloads:
 
 ```bash
@@ -84,12 +84,12 @@ The flag applies a measured, backend-specific compromise:
 
 | Recipe | Context | Other changes | Approximate total VRAM left outside the model |
 | --- | ---: | --- | ---: |
-| `sglang` | 65,536 | memory fraction 0.80, prefill chunk 512 | 6.5 GiB |
-| `exl3` | 114,688 | memory fraction 0.82, prefill chunk 1,024, 4-Mpx image ceiling | 5.9 GiB |
-| `ninfer` | 122,880 | explicit INT8 KV capacity, concurrency 1, prefill chunk 512 | 6.5 GiB |
+| `sglang` | 98,304 | memory fraction 0.82, prefill chunk 512 | 5.9 GiB |
+| `exl3` | 155,648 | memory fraction 0.85, prefill chunk 1,024, 4-Mpx image ceiling | 4.9 GiB |
+| `ninfer` | 172,032 | explicit INT8 KV capacity, concurrency 1, prefill chunk 512 | 5.0 GiB |
 
 The current KDE plus lightly loaded Zen baseline was 3,185 MiB, leaving about
-2.7–3.3 GiB for more tabs and ordinary accelerated pages. Browser VRAM use is
+1.3–2.7 GiB for more tabs and ordinary accelerated pages. Browser VRAM use is
 content-dependent, so video, WebGL/WebGPU, and games can still exceed that
 allowance. Startup checks current free VRAM and refuses rather than forcing an
 unsafe allocation. Without the flag, every original full-performance profile

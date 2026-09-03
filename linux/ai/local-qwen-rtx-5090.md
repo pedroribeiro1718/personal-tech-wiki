@@ -104,16 +104,16 @@ The direct GPU-unload command is `docker stop qwen38`. The next
 
 ## Desktop-use mode
 
-`--desktop-use` retains roughly 6 GiB of the card for the graphical session:
+`--desktop-use` retains roughly 5 GiB of the card for the graphical session:
 
 | Recipe | Context | Desktop adjustments | Approximate VRAM left outside the model |
 | --- | ---: | --- | ---: |
-| `sglang` | 65,536 | memory fraction 0.80; prefill 512 | 6.5 GiB |
-| `exl3` | 114,688 | memory fraction 0.82; prefill 1,024; 4-Mpx images | 5.9 GiB |
-| `ninfer` | 122,880 | fixed INT8 KV; concurrency 1; prefill 512 | 6.5 GiB |
+| `sglang` | 98,304 | memory fraction 0.82; prefill 512 | 5.9 GiB |
+| `exl3` | 155,648 | memory fraction 0.85; prefill 1,024; 4-Mpx images | 4.9 GiB |
+| `ninfer` | 172,032 | fixed INT8 KV; concurrency 1; prefill 512 | 5.0 GiB |
 
 The measured KDE plus lightly loaded Zen baseline was 3,185 MiB. This leaves
-roughly another 2.7–3.3 GiB for normal browser growth, but it cannot guarantee
+roughly another 1.3–2.7 GiB for normal browser growth, but it cannot guarantee
 headroom for video, WebGL/WebGPU, or games. A startup preflight refuses the
 selected profile if current free VRAM is insufficient. Omitting the flag keeps
 the original high-context settings unchanged.

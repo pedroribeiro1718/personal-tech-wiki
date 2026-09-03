@@ -33,11 +33,11 @@ start_qwen() {
     return 1
   fi
   if (( DESKTOP_USE )); then
-    check_desktop_memory "sglang" 800
-    printf 'Desktop-use profile: sglang, 65,536 context, 6.5-GiB total VRAM reserve.\n'
-    QWEN_CONTEXT_LENGTH=65536 \
+    check_desktop_memory "sglang" 820
+    printf 'Desktop-use profile: sglang, 98,304 context, about 5.9-GiB total VRAM reserve.\n'
+    QWEN_CONTEXT_LENGTH=98304 \
     QWEN_PREFILL_CHUNK=512 \
-    QWEN_GPU_MEMORY_UTILIZATION=0.80 \
+    QWEN_GPU_MEMORY_UTILIZATION=0.82 \
       docker compose -f "${STACK_DIR}/qwen.compose.yaml" up -d qwen
   else
     docker compose -f "${STACK_DIR}/qwen.compose.yaml" up -d qwen
@@ -174,7 +174,7 @@ check_qwen_full_memory() {
     return 1
   fi
   if (( DESKTOP_USE )); then
-    required_mib=$((total_mib * 820 / 1000))
+    required_mib=$((total_mib * 850 / 1000))
   else
     required_mib=$((total_mib * 955 / 1000))
   fi
@@ -194,11 +194,11 @@ start_qwen_full() {
   check_qwen_full_memory
   ensure_full_patches
   if (( DESKTOP_USE )); then
-    printf 'Desktop-use profile: exl3, 114,688 context, about 5.9-GiB total VRAM reserve.\n'
+    printf 'Desktop-use profile: exl3, 155,648 context, about 4.9-GiB total VRAM reserve.\n'
     QWEN_FULL_PATCH_DIR="${QWEN_FULL_PATCH_DIR}" \
-    QWEN_CONTEXT_LENGTH=114688 \
+    QWEN_CONTEXT_LENGTH=155648 \
     QWEN_PREFILL_CHUNK=1024 \
-    QWEN_GPU_MEMORY_UTILIZATION=0.82 \
+    QWEN_GPU_MEMORY_UTILIZATION=0.85 \
     QWEN_MAX_PIXELS=4194304 \
       docker compose -f "${STACK_DIR}/qwen-full.compose.yaml" up -d qwen-full
   else
@@ -329,7 +329,7 @@ check_qwen_ninfer_memory() {
     return 1
   fi
   if (( DESKTOP_USE )); then
-    required_mib=26100
+    required_mib=27620
   else
     required_mib=$((total_mib - 1080))
   fi
@@ -351,10 +351,10 @@ start_qwen_ninfer() {
   ensure_ninfer_image
   ensure_ninfer_model
   if (( DESKTOP_USE )); then
-    printf 'Desktop-use profile: ninfer, 122,880 context, about 6.5-GiB total VRAM reserve.\n'
+    printf 'Desktop-use profile: ninfer, 172,032 context, about 5.0-GiB total VRAM reserve.\n'
     QWEN_NINFER_MODEL_FILE="${QWEN_NINFER_MODEL_FILE}" \
-    QWEN_CONTEXT_LENGTH=122880 \
-    QWEN_KV_CAPACITY=122880 \
+    QWEN_CONTEXT_LENGTH=172032 \
+    QWEN_KV_CAPACITY=172032 \
     QWEN_MAX_CONCURRENCY=1 \
     QWEN_PREFILL_CHUNK=512 \
       docker compose -f "${STACK_DIR}/qwen-ninfer.compose.yaml" up -d qwen-ninfer
@@ -626,7 +626,7 @@ Commands:
 
 Targets: qwen, harness, searxng, all
 Recipes: sglang (default), exl3, ninfer
---desktop-use reserves roughly 6 GiB for the graphical desktop and lowers
+--desktop-use reserves roughly 5 GiB for the graphical desktop and lowers
 context/prefill settings; it does not make gaming alongside the model viable.
 
 Examples:
