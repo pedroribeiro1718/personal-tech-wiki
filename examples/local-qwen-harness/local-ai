@@ -29,7 +29,7 @@ HARNESS_UNIT="local-qwen-harness.service"
 
 start_qwen() {
   if container_running "${QWEN_FULL_CONTAINER}" || container_running "${QWEN_NINFER_CONTAINER}"; then
-    printf 'Another model target is already using the GPU. Stop it before starting qwen.\n' >&2
+    printf 'Another Qwen recipe is already using the GPU. Run: local-ai stop qwen\n' >&2
     return 1
   fi
   if docker container inspect "${QWEN_CONTAINER}" >/dev/null 2>&1; then
@@ -95,7 +95,7 @@ ensure_full_patches() {
   fi
   if [[ -e "${QWEN_FULL_PATCH_DIR}" ]]; then
     printf 'Existing full-context patch cache failed verification: %s\n' "${QWEN_FULL_PATCH_DIR}" >&2
-    printf 'Move it aside, then run: local-ai prepare qwen-full\n' >&2
+    printf 'Move it aside, then run: local-ai prepare exl3\n' >&2
     return 1
   fi
 
@@ -132,7 +132,7 @@ prepare_qwen_full() {
   docker volume inspect qwen38-full-hf-cache >/dev/null 2>&1 || \
     docker volume create qwen38-full-hf-cache >/dev/null
   full_compose pull qwen-full
-  printf 'qwen-full runtime is prepared. Model weights download on first start.\n'
+  printf 'exl3 recipe is prepared. Model weights download on first start.\n'
 }
 
 check_qwen_full_memory() {
@@ -157,7 +157,7 @@ check_qwen_full_memory() {
 
 start_qwen_full() {
   if container_running "${QWEN_CONTAINER}" || container_running "${QWEN_NINFER_CONTAINER}"; then
-    printf 'Another model target is already using the GPU. Stop it before starting qwen-full.\n' >&2
+    printf 'Another Qwen recipe is already using the GPU. Run: local-ai stop qwen\n' >&2
     return 1
   fi
   check_qwen_full_memory
@@ -179,7 +179,7 @@ ensure_ninfer_source() {
     fi
     printf 'Existing NInfer source cache is modified or not at the pinned revision: %s\n' \
       "${QWEN_NINFER_SOURCE_DIR}" >&2
-    printf 'Move it aside, then run: local-ai prepare qwen-ninfer\n' >&2
+    printf 'Move it aside, then run: local-ai prepare ninfer\n' >&2
     return 1
   fi
   if [[ -e "${QWEN_NINFER_SOURCE_DIR}" ]]; then
@@ -222,7 +222,7 @@ ensure_ninfer_model() {
     if (( current_size >= QWEN_NINFER_MODEL_SIZE )); then
       printf 'Existing NInfer artifact failed size or checksum verification: %s\n' \
         "${QWEN_NINFER_MODEL_FILE}" >&2
-      printf 'Move it aside, then run: local-ai prepare qwen-ninfer\n' >&2
+      printf 'Move it aside, then run: local-ai prepare ninfer\n' >&2
       return 1
     fi
     printf 'Resuming NInfer model download at %s of %s bytes.\n' \
@@ -273,7 +273,7 @@ prepare_qwen_ninfer() {
   ensure_ninfer_source
   ensure_ninfer_image
   ensure_ninfer_model
-  printf 'qwen-ninfer is prepared. Nothing was started.\n'
+  printf 'ninfer recipe is prepared. Nothing was started.\n'
 }
 
 check_qwen_ninfer_memory() {
@@ -298,7 +298,7 @@ check_qwen_ninfer_memory() {
 
 start_qwen_ninfer() {
   if container_running "${QWEN_CONTAINER}" || container_running "${QWEN_FULL_CONTAINER}"; then
-    printf 'Another model target is already using the GPU. Stop it before starting qwen-ninfer.\n' >&2
+    printf 'Another Qwen recipe is already using the GPU. Run: local-ai stop qwen\n' >&2
     return 1
   fi
   check_qwen_ninfer_memory
@@ -307,6 +307,13 @@ start_qwen_ninfer() {
   ensure_ninfer_model
   ninfer_compose up -d qwen-ninfer
   wait_for_model "Qwen NInfer" "${QWEN_NINFER_URL}" 450 "${QWEN_NINFER_CONTAINER}"
+}
+
+prepare_qwen_sglang() {
+  docker volume inspect qwen38-hf-cache >/dev/null 2>&1 || \
+    docker volume create qwen38-hf-cache >/dev/null
+  docker compose -f "${STACK_DIR}/qwen.compose.yaml" pull qwen
+  printf 'sglang recipe is prepared. Nothing was started.\n'
 }
 
 start_harness() {
@@ -370,26 +377,13 @@ validate_targets() {
 
   for target_name in "$@"; do
     case "${target_name}" in
-      qwen|qwen-full|qwen-ninfer|harness|searxng|all) ;;
+      qwen|harness|searxng|all) ;;
       *)
-        printf 'Unknown target: %s (expected qwen, qwen-full, qwen-ninfer, harness, searxng, or all)\n' "${target_name}" >&2
+        printf 'Unknown target: %s (expected qwen, harness, searxng, or all)\n' "${target_name}" >&2
         return 2
         ;;
     esac
   done
-}
-
-target_explicitly_requested() {
-  local requested_target="$1"
-  local target_name
-  shift
-
-  for target_name in "$@"; do
-    if [[ "${target_name}" == "${requested_target}" ]]; then
-      return 0
-    fi
-  done
-  return 1
 }
 
 target_requested() {
@@ -405,34 +399,79 @@ target_requested() {
   return 1
 }
 
+validate_recipe() {
+  case "$1" in
+    sglang|exl3|ninfer) ;;
+    *)
+      printf 'Unknown Qwen recipe: %s (expected sglang, exl3, or ninfer)\n' "$1" >&2
+      return 2
+      ;;
+  esac
+}
+
+SELECTED_RECIPE=""
+PARSED_TARGETS=()
+
+parse_service_arguments() {
+  local mode="$1"
+  shift
+
+  SELECTED_RECIPE=""
+  PARSED_TARGETS=()
+  while (( $# > 0 )); do
+    case "$1" in
+      --recipe)
+        shift
+        if (( $# == 0 )); then
+          printf '%s requires a value: sglang, exl3, or ninfer\n' --recipe >&2
+          return 2
+        fi
+        SELECTED_RECIPE="$1"
+        ;;
+      --recipe=*)
+        SELECTED_RECIPE="${1#--recipe=}"
+        ;;
+      --*)
+        printf 'Unknown option: %s\n' "$1" >&2
+        return 2
+        ;;
+      *)
+        PARSED_TARGETS+=("$1")
+        ;;
+    esac
+    shift
+  done
+
+  if [[ -n "${SELECTED_RECIPE}" ]]; then
+    validate_recipe "${SELECTED_RECIPE}"
+  elif [[ "${mode}" == "start" ]]; then
+    SELECTED_RECIPE="sglang"
+  fi
+  if (( ${#PARSED_TARGETS[@]} == 0 )); then
+    PARSED_TARGETS=(all)
+  fi
+  validate_targets "${PARSED_TARGETS[@]}"
+}
+
 start_targets() {
-  local model_count=0
+  local recipe="$1"
+  shift
 
-  if (( $# == 0 )); then
-    set -- all
-  fi
   validate_targets "$@"
-
-  target_requested qwen "$@" && ((model_count += 1))
-  target_explicitly_requested qwen-full "$@" && ((model_count += 1))
-  target_explicitly_requested qwen-ninfer "$@" && ((model_count += 1))
-  if (( model_count > 1 )); then
-    printf 'qwen, qwen-full, and qwen-ninfer cannot run together on one GPU. Select only one model target.\n' >&2
-    return 2
-  fi
+  validate_recipe "${recipe}"
 
   if target_requested searxng "$@"; then
     docker compose -f "${STACK_DIR}/compose.yaml" up -d searxng
   fi
   if target_requested qwen "$@"; then
-    start_qwen
-    wait_for_qwen
-  fi
-  if target_explicitly_requested qwen-full "$@"; then
-    start_qwen_full
-  fi
-  if target_explicitly_requested qwen-ninfer "$@"; then
-    start_qwen_ninfer
+    case "${recipe}" in
+      sglang)
+        start_qwen
+        wait_for_qwen
+        ;;
+      exl3) start_qwen_full ;;
+      ninfer) start_qwen_ninfer ;;
+    esac
   fi
   if target_requested harness "$@"; then
     start_harness
@@ -445,32 +484,40 @@ model_start() {
 }
 
 model_stop() {
-  docker stop "${QWEN_CONTAINER}"
-  printf 'Qwen stopped. Its CUDA allocation has been released.\n'
+  stop_targets "" qwen
 }
 
 stop_targets() {
+  local recipe="$1"
+  shift
   local stop_result=0
 
-  if (( $# == 0 )); then
-    set -- all
-  fi
   validate_targets "$@"
 
   if target_requested harness "$@"; then
     stop_harness || stop_result=$?
   fi
   if target_requested qwen "$@"; then
-    docker stop "${QWEN_CONTAINER}" >/dev/null 2>&1 || true
-    printf 'Qwen stopped; its CUDA allocation has been released.\n'
-  fi
-  if target_requested qwen-full "$@"; then
-    docker stop --time 60 "${QWEN_FULL_CONTAINER}" >/dev/null 2>&1 || true
-    printf 'Qwen full-context stopped; its CUDA allocation has been released.\n'
-  fi
-  if target_requested qwen-ninfer "$@"; then
-    docker stop --time 60 "${QWEN_NINFER_CONTAINER}" >/dev/null 2>&1 || true
-    printf 'Qwen NInfer stopped; its CUDA allocation has been released.\n'
+    case "${recipe}" in
+      sglang)
+        docker stop "${QWEN_CONTAINER}" >/dev/null 2>&1 || true
+        printf 'Qwen sglang stopped; its CUDA allocation has been released.\n'
+        ;;
+      exl3)
+        docker stop --time 60 "${QWEN_FULL_CONTAINER}" >/dev/null 2>&1 || true
+        printf 'Qwen EXL3 stopped; its CUDA allocation has been released.\n'
+        ;;
+      ninfer)
+        docker stop --time 60 "${QWEN_NINFER_CONTAINER}" >/dev/null 2>&1 || true
+        printf 'Qwen NInfer stopped; its CUDA allocation has been released.\n'
+        ;;
+      "")
+        docker stop "${QWEN_CONTAINER}" >/dev/null 2>&1 || true
+        docker stop --time 60 "${QWEN_FULL_CONTAINER}" >/dev/null 2>&1 || true
+        docker stop --time 60 "${QWEN_NINFER_CONTAINER}" >/dev/null 2>&1 || true
+        printf 'All Qwen recipes stopped; their CUDA allocations have been released.\n'
+        ;;
+    esac
   fi
   if target_requested searxng "$@"; then
     docker compose -f "${STACK_DIR}/compose.yaml" stop searxng >/dev/null
@@ -500,37 +547,54 @@ logs() {
 
 usage() {
   cat <<'EOF'
-Usage: local-ai COMMAND [TARGET ...]
+Usage: local-ai COMMAND [OPTIONS] [TARGET ...]
 
 Commands:
-  start [TARGET ...]  Start selected targets; no targets means all
-  stop [TARGET ...]   Stop selected targets; no targets means all
-                      Targets: qwen, qwen-full, qwen-ninfer, harness, searxng, all
-  prepare qwen-full   Download and verify the EXL3 alternate runtime (not weights)
-  prepare qwen-ninfer Build NInfer and download/verify its 20.02-GiB artifact
+  start [--recipe RECIPE] [TARGET ...]
+                      Start targets with the selected Qwen recipe
+  stop [--recipe RECIPE] [TARGET ...]
+                      Stop targets; without --recipe, qwen stops every recipe
+  prepare RECIPE      Prepare one Qwen recipe without starting it
   model-start  Load Qwen onto the GPU without starting Harness
   model-stop   Stop Qwen and release its GPU memory
   status       Show Harness, container, and GPU-process status
   logs         Show the last 100 lines of the Harness log
+
+Targets: qwen, harness, searxng, all
+Recipes: sglang (default), exl3, ninfer
+
+Examples:
+  local-ai start qwen harness
+  local-ai start --recipe exl3 qwen harness
+  local-ai start --recipe ninfer qwen harness searxng
+  local-ai stop qwen
+  local-ai prepare ninfer
 EOF
 }
 
 case "${1:-}" in
-  start) shift; start_targets "$@" ;;
+  start)
+    shift
+    parse_service_arguments start "$@"
+    start_targets "${SELECTED_RECIPE}" "${PARSED_TARGETS[@]}"
+    ;;
   prepare)
     shift
-    if [[ "${1:-}" == "qwen-full" && $# == 1 ]]; then
-      prepare_qwen_full
-    elif [[ "${1:-}" == "qwen-ninfer" && $# == 1 ]]; then
-      prepare_qwen_ninfer
-    else
-      usage
-      exit 2
-    fi
+    (( $# == 1 )) || { usage; exit 2; }
+    validate_recipe "$1"
+    case "$1" in
+      sglang) prepare_qwen_sglang ;;
+      exl3) prepare_qwen_full ;;
+      ninfer) prepare_qwen_ninfer ;;
+    esac
     ;;
   model-start) model_start ;;
   model-stop) model_stop ;;
-  stop) shift; stop_targets "$@" ;;
+  stop)
+    shift
+    parse_service_arguments stop "$@"
+    stop_targets "${SELECTED_RECIPE}" "${PARSED_TARGETS[@]}"
+    ;;
   status) status ;;
   logs) logs ;;
   *) usage; exit 2 ;;

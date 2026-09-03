@@ -82,10 +82,10 @@ Bootstrap complete. Nothing was started and nothing is configured for autostart.
 
 Manual commands:
   ${BIN_DIR}/local-ai start
-  ${BIN_DIR}/local-ai prepare qwen-full
-  ${BIN_DIR}/local-ai start qwen-full harness
-  ${BIN_DIR}/local-ai prepare qwen-ninfer
-  ${BIN_DIR}/local-ai start qwen-ninfer harness
+  ${BIN_DIR}/local-ai prepare exl3
+  ${BIN_DIR}/local-ai start --recipe exl3 qwen harness
+  ${BIN_DIR}/local-ai prepare ninfer
+  ${BIN_DIR}/local-ai start --recipe ninfer qwen harness
   ${BIN_DIR}/local-ai stop qwen
   ${BIN_DIR}/local-ai start qwen
   ${BIN_DIR}/local-ai stop

@@ -7,12 +7,12 @@ management helper. Harness uses a pinned local Markdown renderer for Mermaid
 diagrams. The custom model route explicitly declares text and image input; the
 pinned checkpoint's vision path was verified through SGLang.
 
-An optional `qwen-full` recipe adds the model's native 262,144-token window.
+The optional `exl3` recipe adds the model's native 262,144-token window.
 It uses the measured EXL3 K5/K6 context build, FP8 KV, MTP-3, and the BF16
 vision tower through a digest-pinned Gilded Gnosis/vLLM image. It does not
 replace or alter the default 122,880-token SGLang service.
 
-A third, experimental `qwen-ninfer` recipe exposes 252,928 text tokens using
+A third, experimental `ninfer` recipe exposes 252,928 text tokens using
 NInfer, INT8 KV, and MTP-3. That is 96.5% of the native window. It is isolated
 on port 30002 and does not replace either existing service.
 
@@ -41,11 +41,11 @@ Existing Harness files that differ are retained as `*.before-local-ai`.
 ```bash
 local-ai start                   # all three
 local-ai start qwen harness      # any additive subset
-local-ai prepare qwen-full       # fetch the optional pinned runtime image
-local-ai start qwen-full harness # use the alternate model instead of qwen
+local-ai prepare exl3            # fetch the optional pinned runtime image
+local-ai start --recipe exl3 qwen harness
 ./test-full-context.mjs          # direct 250K-token retrieval test
-local-ai prepare qwen-ninfer     # build pinned NInfer + fetch its 20.02-GiB artifact
-local-ai start qwen-ninfer harness
+local-ai prepare ninfer          # build pinned NInfer + fetch its 20.02-GiB artifact
+local-ai start --recipe ninfer qwen harness
 QWEN_FULL_URL=http://127.0.0.1:30002 QWEN_FULL_MODEL=qwen3.8-27b-ninfer ./test-full-context.mjs 245000
 local-ai status
 local-ai logs
@@ -54,10 +54,11 @@ local-ai start qwen              # reload the model only
 local-ai stop                    # all three
 ```
 
-The valid targets are `qwen`, `qwen-full`, `qwen-ninfer`, `harness`, and
-`searxng`; list one or several in any order. With no targets, `start` starts
-the original `qwen`, Harness, and SearXNG. `stop` also stops both alternatives
-if they exist. Harness runs as a transient user-systemd service, and
+The valid targets are `qwen`, `harness`, and `searxng`; list one or several in
+any order. The Qwen recipe values are `sglang` (default), `exl3`, and `ninfer`.
+With no targets, `start` starts the selected Qwen recipe, Harness, and SearXNG.
+Without `--recipe`, `stop qwen` stops every recipe container. Harness runs as a
+transient user-systemd service, and
 `local-ai logs` reads its journal.
 The transient unit provides reliable process-tree cleanup without installing or
 enabling a boot service. Nothing starts at boot, and all Docker services use
@@ -65,17 +66,17 @@ enabling a boot service. Nothing starts at boot, and all Docker services use
 
 `local-ai stop qwen` releases its CUDA allocation while leaving Harness and
 SearXNG alone. `model-start` and `model-stop` remain as compatibility aliases.
-The three model targets are mutually exclusive on the single GPU. Select the
-matching model in Harness after starting an alternate target.
+Only one Qwen recipe can use the single GPU at a time. Select the matching
+model in Harness after starting an alternate recipe.
 
 ## Optional native 262K profile
 
 Prepare once, then start it when needed:
 
 ```bash
-local-ai prepare qwen-full
+local-ai prepare exl3
 local-ai stop qwen
-local-ai start qwen-full harness
+local-ai start --recipe exl3 qwen harness
 ```
 
 Preparation downloads and verifies four pinned runtime overlays and pulls the
@@ -111,9 +112,9 @@ window is usable; it is not a general long-context reasoning benchmark.
 Prepare once, then start it instead of either other model service:
 
 ```bash
-local-ai prepare qwen-ninfer
-local-ai stop qwen qwen-full
-local-ai start qwen-ninfer searxng harness
+local-ai prepare ninfer
+local-ai stop qwen
+local-ai start --recipe ninfer qwen searxng harness
 ```
 
 Preparation checks out the pinned NInfer source, builds its CUDA 13.1 image,
@@ -135,7 +136,7 @@ QWEN_FULL_URL=http://127.0.0.1:30002 \
 QWEN_FULL_MODEL=qwen3.8-27b-ninfer \
   ./test-full-context.mjs 245000
 
-local-ai stop qwen-ninfer
+local-ai stop --recipe ninfer qwen
 ```
 
 The service binds only to `http://127.0.0.1:30002/v1`. Source, build products,
