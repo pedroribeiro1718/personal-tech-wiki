@@ -96,20 +96,20 @@ def overview() -> list[str]:
         ]
     )
     return [
-        "SERVICES",
+        " SERVICES",
         f"  Qwen       {qwen_state:<10} {container:<18} http://127.0.0.1:30000/v1",
         f"  Harness    {unit_state():<10} {'user systemd':<18} http://127.0.0.1:3080",
         f"  SearXNG    {searxng:<10} {'qwen-searxng':<18} http://127.0.0.1:8888",
         "",
-        "MODEL",
+        " MODEL",
         f"  Recipe     {recipe}",
         f"  ID         {model}",
         f"  Context    {context} tokens",
         "",
-        "GPU",
+        " GPU",
         *[f"  {line}" for line in gpu_metrics()],
         "",
-        "COMPUTE PROCESSES",
+        " COMPUTE PROCESSES",
         *[f"  {line}" for line in (processes.splitlines() or ["none"])],
     ]
 
@@ -176,9 +176,12 @@ def draw(screen: curses.window, title: str, tab: int, lines: list[str], top: int
     put(screen, 0, 1, title, curses.A_BOLD)
     position = 1
     for index, name in enumerate(TABS):
-        label = f" {index + 1}:{name} "
+        if index:
+            put(screen, 2, position, " | ", curses.A_DIM)
+            position += 3
+        label = f" {index + 1} {name} "
         put(screen, 2, position, label, curses.A_REVERSE if index == tab else 0)
-        position += len(label) + 1
+        position += len(label)
 
     content_height = height - 6
     content_width = width - 4
