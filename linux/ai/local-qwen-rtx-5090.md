@@ -140,6 +140,11 @@ headroom for video, WebGL/WebGPU, or games. A startup preflight refuses the
 selected profile if current free VRAM is insufficient. Omitting the flag keeps
 the original high-context settings unchanged.
 
+EXL3 and NInfer complete local runtime/model preparation before the final VRAM
+check so its result remains close to container launch. If a model container
+exits before the API is ready, `local-ai` stops waiting immediately and prints
+its last 40 log lines.
+
 ## Native 262K test profile
 
 ```bash

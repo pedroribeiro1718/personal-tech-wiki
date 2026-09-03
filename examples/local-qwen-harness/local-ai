@@ -55,6 +55,11 @@ wait_for_model() {
       printf '\n%s is ready: %s\n' "${label}" "${url}"
       return 0
     fi
+    if ! container_running "${container_name}"; then
+      printf '\n%s stopped before becoming ready. Recent container log:\n' "${label}" >&2
+      docker logs --tail 40 "${container_name}" >&2 || true
+      return 1
+    fi
     printf '.'
     sleep 2
   done
@@ -127,11 +132,15 @@ full_compose() {
     docker compose -f "${STACK_DIR}/qwen-exl3-262144.compose.yaml" "$@"
 }
 
+ensure_full_image() {
+  full_compose pull --policy missing qwen-full
+}
+
 prepare_qwen_full() {
   ensure_full_patches
   docker volume inspect qwen38-full-hf-cache >/dev/null 2>&1 || \
     docker volume create qwen38-full-hf-cache >/dev/null
-  full_compose pull qwen-full
+  ensure_full_image
   printf 'exl3 recipe is prepared. Model weights download on first start.\n'
 }
 
@@ -164,8 +173,9 @@ start_qwen_full() {
     printf 'Another Qwen recipe is already using the GPU. Run: local-ai stop qwen\n' >&2
     return 1
   fi
-  check_qwen_full_memory
   ensure_full_patches
+  ensure_full_image
+  check_qwen_full_memory
   if (( DESKTOP_USE )); then
     printf 'Desktop-use profile: exl3, 155,648 context, about 4.9-GiB total VRAM reserve.\n'
     QWEN_FULL_PATCH_DIR="${QWEN_FULL_PATCH_DIR}" \
@@ -319,10 +329,10 @@ start_qwen_ninfer() {
     printf 'Another Qwen recipe is already using the GPU. Run: local-ai stop qwen\n' >&2
     return 1
   fi
-  check_qwen_ninfer_memory
   ensure_ninfer_source
   ensure_ninfer_image
   ensure_ninfer_model
+  check_qwen_ninfer_memory
   if (( DESKTOP_USE )); then
     printf 'Desktop-use profile: ninfer, 172,032 context, about 5.0-GiB total VRAM reserve.\n'
     QWEN_NINFER_MODEL_FILE="${QWEN_NINFER_MODEL_FILE}" \

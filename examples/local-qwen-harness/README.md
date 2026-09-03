@@ -110,6 +110,11 @@ allowance. Startup checks current free VRAM and refuses rather than forcing an
 unsafe allocation. Without the flag, every original full-performance profile
 is unchanged.
 
+For EXL3 and NInfer, local runtime/model preparation completes before the final
+VRAM check, keeping that snapshot close to container launch. If any model
+container exits before its API is ready, the readiness loop stops immediately
+and prints the last 40 container-log lines.
+
 ## Optional native 262K profile
 
 Prepare once, then start it when needed:
