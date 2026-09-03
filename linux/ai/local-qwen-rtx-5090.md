@@ -109,7 +109,7 @@ Harness from that checkout:
 local-ai github-login
 local-ai github-status
 cd /path/to/company/repository
-local-ai start --recipe exl3 qwen harness-work searxng
+local-ai start --recipe exl3 --desktop-use qwen harness-work searxng
 # Open http://127.0.0.1:3081
 ```
 

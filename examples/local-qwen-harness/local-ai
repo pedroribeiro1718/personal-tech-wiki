@@ -840,7 +840,7 @@ TARGETS
 EXAMPLES
   local-ai start qwen harness
   local-ai start --recipe exl3 qwen harness
-  cd COMPANY_REPO && local-ai start --recipe exl3 qwen harness-work searxng
+  cd COMPANY_REPO && local-ai start --recipe exl3 --desktop-use qwen harness-work searxng
   local-ai start --recipe ninfer --desktop-use qwen harness searxng
   local-ai stop qwen
   local-ai prepare ninfer

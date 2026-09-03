@@ -56,7 +56,7 @@ QWEN_TEST_MODEL=qwen3.8-27b-ninfer-nvfp4-252928 ./test-full-context.mjs 245000
 local-ai start --recipe ninfer --desktop-use qwen harness
 local-ai github-login                # one-time isolated company GitHub login
 cd COMPANY_REPO
-local-ai start --recipe exl3 qwen harness-work searxng
+local-ai start --recipe exl3 --desktop-use qwen harness-work searxng
 local-ai recipes                    # compare engines, formats, and context limits
 local-ai dashboard                  # interactive services, logs, and GPU view
 local-ai status
@@ -215,7 +215,7 @@ as its workspace:
 local-ai github-login
 local-ai github-status
 cd /path/to/company/repository
-local-ai start --recipe exl3 qwen harness-work searxng
+local-ai start --recipe exl3 --desktop-use qwen harness-work searxng
 ```
 
 Open `http://127.0.0.1:3081`. The work login uses a separate GitHub CLI config
