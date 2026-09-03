@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+STACK_DIR="$(cd -- "$(dirname -- "${SCRIPT_PATH}")" && pwd)"
+QWEN_CONTAINER="qwen38"
+QWEN_URL="http://127.0.0.1:30000/v1/models"
+HARNESS_URL="http://127.0.0.1:3080"
+DSH_PACKAGE="@deepseek-ai/dsh@0.1.1-rc.2"
+
+start_qwen() {
+  if docker container inspect "${QWEN_CONTAINER}" >/dev/null 2>&1; then
+    docker start "${QWEN_CONTAINER}" >/dev/null
+  else
+    docker compose -f "${STACK_DIR}/qwen.compose.yaml" up -d qwen
+  fi
+}
+
+wait_for_qwen() {
+  printf 'Waiting for Qwen to become ready'
+  for _ in $(seq 1 180); do
+    if curl -fsS --max-time 2 "${QWEN_URL}" >/dev/null 2>&1; then
+      printf '\nQwen is ready: %s\n' "${QWEN_URL}"
+      return 0
+    fi
+    printf '.'
+    sleep 2
+  done
+  printf '\nQwen did not become ready within 6 minutes.\n' >&2
+  return 1
+}
+
+start_stack() {
+  docker compose -f "${STACK_DIR}/compose.yaml" up -d searxng
+  start_qwen
+  wait_for_qwen
+  printf 'Starting Harness: %s\n' "${HARNESS_URL}"
+  printf 'Keep this terminal open; press Ctrl+C to stop Harness.\n'
+  export QWEN_LOCAL_API_KEY="${QWEN_LOCAL_API_KEY:-local-no-key}"
+  cd "${HOME}"
+  exec pnpm dlx "${DSH_PACKAGE}" web --no-open
+}
+
+model_start() {
+  start_qwen
+  wait_for_qwen
+}
+
+model_stop() {
+  docker stop "${QWEN_CONTAINER}"
+  printf 'Qwen stopped. Its CUDA allocation has been released.\n'
+}
+
+stop_services() {
+  docker stop "${QWEN_CONTAINER}" >/dev/null 2>&1 || true
+  docker compose -f "${STACK_DIR}/compose.yaml" down
+  printf 'Qwen and SearXNG are stopped. Stop Harness with Ctrl+C in its terminal.\n'
+}
+
+status() {
+  docker ps -a --filter "name=^/${QWEN_CONTAINER}$" --filter "name=^/qwen-searxng$" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+  printf '\nGPU processes:\n'
+  nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null || true
+}
+
+usage() {
+  cat <<'EOF'
+Usage: local-ai COMMAND
+
+Commands:
+  start        Start SearXNG and Qwen, wait for Qwen, then run Harness
+  model-start  Load Qwen onto the GPU without starting Harness
+  model-stop   Stop Qwen and release its GPU memory
+  stop         Stop Qwen and SearXNG (Harness is stopped with Ctrl+C)
+  status       Show container and GPU-process status
+EOF
+}
+
+case "${1:-}" in
+  start) start_stack ;;
+  model-start) model_start ;;
+  model-stop) model_stop ;;
+  stop) stop_services ;;
+  status) status ;;
+  *) usage; exit 2 ;;
+esac

@@ -8,6 +8,11 @@ explain the final design, and keep reusable commands or code beside the article.
 
 ## Linux
 
+### AI
+
+- [Qwen3.8 27B on one RTX 5090 with local web
+  search](linux/ai/local-qwen-rtx-5090.md)
+
 ### Desktop
 
 - [Install the patched Wallpaper Engine KDE plugin on
@@ -34,6 +39,9 @@ explain the final design, and keep reusable commands or code beside the article.
 - [`examples/plasmazones/plasmazones-mode-toggle`](examples/plasmazones/plasmazones-mode-toggle)
   — an all-monitor, two-state switch between Omarchy auto-tiling and
   FancyZones snapping, with a matching KDE desktop action.
+- [`examples/local-qwen-harness/`](examples/local-qwen-harness/) — pinned
+  Docker, Harness, SearXNG, and MCP configuration with a manual bootstrap and
+  GPU unload helper.
 
 ## Intended future topics
 

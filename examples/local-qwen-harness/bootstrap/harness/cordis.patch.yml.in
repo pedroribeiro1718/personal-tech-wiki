@@ -1,0 +1,26 @@
+# Replace Harness's bundled DeepSeek search provider with the local
+# SearXNG MCP adapter. Native DeepSeek web search is explicitly disabled.
+
+- id: web
+  config: {}
+
+- id: web-search-deepseek
+  disabled: true
+
+- id: tool-web
+  disabled: true
+
+- insert:
+    - id: mcp-searxng
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: searxng
+        transport: stdio
+        command: __NODE_BIN__
+        args:
+          - __STACK_DIR__/mcp/server.mjs
+        env:
+          SEARXNG_URL: http://127.0.0.1:8888/
+        cwd: __STACK_DIR__/mcp
+        toolCallTimeoutMs: 30000
+        failOnStartupError: true

@@ -1,0 +1,21 @@
+name: qwen-searxng
+
+services:
+  searxng:
+    # Tag retained for readability; digest pins the tested image.
+    image: docker.io/searxng/searxng:latest@sha256:8486daaebc65adacfe434be38b991cf90da92d3fd80ae9f0ab1409ba65664e28
+    container_name: qwen-searxng
+    restart: "no"
+    ports:
+      - "127.0.0.1:8888:8080"
+    environment:
+      SEARXNG_BASE_URL: http://127.0.0.1:8888/
+      SEARXNG_SECRET: ${SEARXNG_SECRET}
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - searxng-cache:/var/cache/searxng
+
+volumes:
+  searxng-cache:

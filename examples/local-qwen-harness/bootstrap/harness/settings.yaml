@@ -1,0 +1,16 @@
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+llm-pi-ai:
+  providers:
+    qwen-local:
+      apiKeyEnv: QWEN_LOCAL_API_KEY
+      api: openai-completions
+      baseURL: http://127.0.0.1:30000/v1
+      models:
+        - id: gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090
+          input:
+            - text
+            - image
+agent-default-model:
+  provider: qwen-local
+  model: gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090

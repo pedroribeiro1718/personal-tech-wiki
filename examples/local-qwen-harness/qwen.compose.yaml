@@ -1,0 +1,71 @@
+name: qwen38
+
+services:
+  qwen:
+    # Tested SGLang build for the RTX 5090. The digest prevents tag drift.
+    image: lmsysorg/sglang:qwen38-27b@sha256:febfb971c7352570fc445c466ebd6ffc9d896024958e544a60f2137fd85856b1
+    container_name: qwen38
+    restart: "no"
+    ipc: host
+    shm_size: 32gb
+    gpus: all
+    security_opt:
+      - label=disable
+    ports:
+      - "127.0.0.1:30000:30000"
+    volumes:
+      - qwen38-hf-cache:/root/.cache/huggingface:Z
+    command:
+      - sglang
+      - serve
+      - --model-path
+      - gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090
+      - --revision
+      - b8ca3826548c9a7735642feb05c3c473f1fede1f
+      - --speculative-algorithm
+      - DSPARK
+      - --speculative-draft-model-path
+      - gittensor-model-hub/Qwen3.8-27B-DSpark-NVFP4
+      - --speculative-draft-model-revision
+      - eba1ac5a66c74902eaa95a4000a7c5eda96d8e95
+      - --speculative-draft-model-quantization
+      - modelopt_fp4
+      - --speculative-dspark-block-size
+      - "7"
+      - --trust-remote-code
+      - --tp-size
+      - "1"
+      - --context-length
+      - "122880"
+      - --kv-cache-dtype
+      - fp8_e4m3
+      - --attention-backend
+      - flashinfer
+      - --chunked-prefill-size
+      - "1024"
+      - --mamba-radix-cache-strategy
+      - extra_buffer_lazy
+      - --mamba-ssm-dtype
+      - bfloat16
+      - --max-mamba-cache-size
+      - "8"
+      - --mm-feature-transport
+      - cpu
+      - --cuda-graph-max-bs-decode
+      - "1"
+      - --mem-fraction-static
+      - "0.86"
+      - --max-running-requests
+      - "1"
+      - --reasoning-parser
+      - qwen3
+      - --tool-call-parser
+      - qwen3_coder
+      - --host
+      - 0.0.0.0
+      - --port
+      - "30000"
+
+volumes:
+  qwen38-hf-cache:
+    name: qwen38-hf-cache
