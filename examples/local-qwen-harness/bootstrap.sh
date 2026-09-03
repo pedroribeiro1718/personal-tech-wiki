@@ -71,7 +71,7 @@ pnpm --dir "${STACK_DIR}/mcp" install --frozen-lockfile
 pnpm --dir "${PROFILE_DIR}" install
 
 docker volume inspect qwen38-hf-cache >/dev/null 2>&1 || docker volume create qwen38-hf-cache >/dev/null
-docker compose -f "${STACK_DIR}/qwen-sglang-122880.compose.yaml" pull
+docker compose -f "${STACK_DIR}/qwen-sglang-nvfp4-122880.compose.yaml" pull
 docker compose -f "${STACK_DIR}/compose.yaml" pull
 
 ln -sfn "${STACK_DIR}/local-ai" "${BIN_DIR}/local-ai"

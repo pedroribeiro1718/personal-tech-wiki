@@ -26,7 +26,7 @@ services:
       - --port
       - "8080"
       - --model-id
-      - qwen3.8-27b-ninfer
+      - qwen3.8-27b-ninfer-nvfp4-252928
       - --max-context
       - "${QWEN_CONTEXT_LENGTH:-252928}"
       - --kv-capacity

@@ -46,7 +46,7 @@ local-ai start --recipe exl3 qwen harness
 ./test-full-context.mjs          # direct 250K-token retrieval test
 local-ai prepare ninfer          # build pinned NInfer + fetch its 20.02-GiB artifact
 local-ai start --recipe ninfer qwen harness
-QWEN_FULL_MODEL=qwen3.8-27b-ninfer ./test-full-context.mjs 245000
+QWEN_TEST_MODEL=qwen3.8-27b-ninfer-nvfp4-252928 ./test-full-context.mjs 245000
 local-ai start --recipe ninfer --desktop-use qwen harness
 local-ai recipes                    # compare engines, formats, and context limits
 local-ai dashboard                  # interactive services, logs, and GPU view
@@ -59,8 +59,9 @@ local-ai stop                    # all three
 
 The valid targets are `qwen`, `harness`, and `searxng`; list one or several in
 any order. The Qwen recipe values are `sglang` (default), `exl3`, and `ninfer`.
-Run `local-ai recipes` for a compact comparison of their engines, weight and KV
-formats, normal/desktop context limits, vision, and speculative decoding.
+Run `local-ai recipes` for a compact comparison of their canonical served IDs,
+engines, weight and KV formats, normal/desktop context limits, vision, and
+speculative decoding.
 With no targets, `start` starts the selected Qwen recipe, Harness, and SearXNG.
 Without `--recipe`, `stop qwen` stops every recipe container. Harness runs as a
 transient user-systemd service, and
@@ -135,7 +136,7 @@ The profile is deliberately single-user: 262,144 context, FP8 KV, MTP-3,
 because the measured full-window-plus-vision profile does not have enough
 headroom for it. `gpu-memory-utilization=0.955` was qualified on one physical
 RTX 5090; if startup misses by a few MiB on this card, change it to `0.956` in
-`qwen-exl3-262144.compose.yaml` and record that change here.
+`qwen-vllm-exl3-k5k6-262144.compose.yaml` and record that change here.
 
 Without `--desktop-use`, vLLM reserves 95.5% of the card. `local-ai` checks
 free VRAM and refuses to start unless that budget is available. On KDE,
@@ -167,7 +168,8 @@ Preparation checks out the pinned NInfer source, builds its CUDA 13.1 image,
 downloads the pinned 20.02-GiB `.ninfer` artifact, and verifies its exact size
 and SHA-256. It starts nothing. Downloads can resume after interruption.
 
-In Harness, select `qwen3.8-27b-ninfer`. This route is text-only because
+In Harness, select `Qwen 3.8 27B · NInfer · NVFP4 · 252,928`. This route is
+text-only because
 NInfer's qualified vision profile reserves enough memory to reduce context to
 81,920 tokens. The max-context profile instead uses 252,928 tokens, INT8 KV,
 MTP-3, two-request scheduling, and prefix reuse. Reasoning and tool-call
@@ -178,7 +180,7 @@ start it unless all but roughly 1,080 MiB of VRAM is free. Run the direct test
 after the endpoint reports ready:
 
 ```bash
-QWEN_FULL_MODEL=qwen3.8-27b-ninfer \
+QWEN_TEST_MODEL=qwen3.8-27b-ninfer-nvfp4-252928 \
   ./test-full-context.mjs 245000
 
 local-ai stop --recipe ninfer qwen
@@ -212,7 +214,10 @@ Harness renders fenced `mermaid` blocks through
 rendering does not depend on a CDN. After restoring or changing the plugin,
 reload the Harness page once.
 
-See `qwen-sglang-122880.compose.yaml`, `qwen-exl3-262144.compose.yaml`, and
-`qwen-ninfer-252928.compose.yaml` for every inference parameter, and `VERSIONS.md`
-for captured source/image/model revisions. Model caches are large and are not
-part of this bundle; a fresh machine downloads them separately.
+Canonical served IDs use `qwen3.8-27b-<engine>-<weight-quant>-<normal-context>`;
+Harness presents the same attributes as readable display names. See
+`qwen-sglang-nvfp4-122880.compose.yaml`,
+`qwen-vllm-exl3-k5k6-262144.compose.yaml`, and
+`qwen-ninfer-nvfp4-252928.compose.yaml` for every inference parameter, and
+`VERSIONS.md` for captured source/image/model revisions. Model caches are large
+and are not part of this bundle; a fresh machine downloads them separately.

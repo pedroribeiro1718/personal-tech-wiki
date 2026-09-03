@@ -110,8 +110,8 @@ can use the single GPU at a time. Harness gives undocumented custom models a
 262,144-token fallback instead of deriving limits from `/v1/models`; the
 committed settings declare the real capacities, and every successful
 `local-ai start ... qwen` hot-synchronizes the active normal/desktop value.
-Use `local-ai recipes` to print the engine, weight/KV formats, context limits,
-vision support, and speculative-decoding method for each recipe.
+Use `local-ai recipes` to print each canonical served ID, engine, weight/KV
+formats, context limits, vision support, and speculative-decoding method.
 
 `local-ai dashboard` provides Overview, Qwen log, Harness log, SearXNG log, and
 GPU tabs using Python's standard-library terminal UI. Switch with `Tab` or
@@ -155,7 +155,7 @@ local-ai start --recipe exl3 qwen harness # first start downloads the 20.7 GB sn
 local-ai stop --recipe exl3 qwen # release VRAM
 ```
 
-In Harness, select `qwen3.8-27b-full`. It is served at
+In Harness, select `Qwen 3.8 27B · vLLM · EXL3 K5/K6 · 262,144`. It is served at
 `http://127.0.0.1:30000/v1` with a 262,144-token limit, FP8 KV, MTP-3,
 single-request scheduling, and image input. Its dedicated cache volume is
 `qwen38-full-hf-cache`.
@@ -166,7 +166,7 @@ This protects the driver from a repeat of the previous VRAM-exhaustion failure.
 
 The measured starting point is `gpu-memory-utilization=0.955`. RTX 5090 cards
 can differ by a few MiB; if startup says the KV allocation narrowly misses,
-raise it to `0.956` in `qwen-exl3-262144.compose.yaml`. Prefix caching stays disabled
+raise it to `0.956` in `qwen-vllm-exl3-k5k6-262144.compose.yaml`. Prefix caching stays disabled
 because it does not fit alongside the native window and qualified vision
 ceiling on 32 GB. The test proves capacity plus basic retrieval, not general
 long-context reasoning.
@@ -178,13 +178,14 @@ local-ai prepare ninfer             # pinned source build + verified 20.02-GiB a
 local-ai stop qwen
 local-ai start --recipe ninfer qwen harness
 
-QWEN_FULL_MODEL=qwen3.8-27b-ninfer \
+QWEN_TEST_MODEL=qwen3.8-27b-ninfer-nvfp4-252928 \
   ./test-full-context.mjs 245000
 
 local-ai stop --recipe ninfer qwen # release VRAM
 ```
 
-Select `qwen3.8-27b-ninfer` in Harness. The OpenAI-compatible endpoint is
+Select `Qwen 3.8 27B · NInfer · NVFP4 · 252,928` in Harness. The
+OpenAI-compatible endpoint is
 `http://127.0.0.1:30000/v1`. The profile uses 252,928 context, INT8 KV,
 MTP-3, two-request scheduling, and prefix reuse. It supports reasoning and
 tool calls; Harness remains responsible for executing the SearXNG tools.
@@ -201,7 +202,7 @@ its exact size and SHA-256. The model and build caches are not committed.
 ## Important pinned settings
 
 The authoritative command is
-[`qwen-sglang-122880.compose.yaml`](../../examples/local-qwen-harness/qwen-sglang-122880.compose.yaml).
+[`qwen-sglang-nvfp4-122880.compose.yaml`](../../examples/local-qwen-harness/qwen-sglang-nvfp4-122880.compose.yaml).
 Its main choices are:
 
 - main model: `gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090`

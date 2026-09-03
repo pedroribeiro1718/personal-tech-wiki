@@ -22,6 +22,8 @@ services:
       - gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090
       - --revision
       - b8ca3826548c9a7735642feb05c3c473f1fede1f
+      - --served-model-name
+      - qwen3.8-27b-sglang-nvfp4-122880
       - --speculative-algorithm
       - DSPARK
       - --speculative-draft-model-path

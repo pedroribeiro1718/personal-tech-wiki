@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const baseUrl = process.env.QWEN_FULL_URL ?? "http://127.0.0.1:30000";
-const model = process.env.QWEN_FULL_MODEL ?? "qwen3.8-27b-full";
+const model = process.env.QWEN_TEST_MODEL ?? "qwen3.8-27b-vllm-exl3-k5k6-262144";
 const requestedTokens = Number.parseInt(process.argv[2] ?? "250000", 10);
 
 if (!Number.isInteger(requestedTokens) || requestedTokens < 1000 || requestedTokens > 255000) {

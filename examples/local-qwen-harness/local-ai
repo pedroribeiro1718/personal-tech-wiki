@@ -36,7 +36,7 @@ start_qwen() {
   if (( DESKTOP_USE )); then
     printf 'SGLang is already desktop-qualified; keeping its normal 122,880-token profile.\n'
   fi
-  docker compose -f "${STACK_DIR}/qwen-sglang-122880.compose.yaml" up -d qwen
+  docker compose -f "${STACK_DIR}/qwen-sglang-nvfp4-122880.compose.yaml" up -d qwen
 }
 
 container_running() {
@@ -129,7 +129,7 @@ ensure_full_patches() {
 
 full_compose() {
   QWEN_FULL_PATCH_DIR="${QWEN_FULL_PATCH_DIR}" \
-    docker compose -f "${STACK_DIR}/qwen-exl3-262144.compose.yaml" "$@"
+    docker compose -f "${STACK_DIR}/qwen-vllm-exl3-k5k6-262144.compose.yaml" "$@"
 }
 
 ensure_full_image() {
@@ -183,11 +183,11 @@ start_qwen_full() {
     QWEN_PREFILL_CHUNK=1024 \
     QWEN_GPU_MEMORY_UTILIZATION=0.85 \
     QWEN_MAX_PIXELS=4194304 \
-      docker compose -f "${STACK_DIR}/qwen-exl3-262144.compose.yaml" up -d qwen-full
+      docker compose -f "${STACK_DIR}/qwen-vllm-exl3-k5k6-262144.compose.yaml" up -d qwen-full
   else
     full_compose up -d qwen-full
   fi
-  wait_for_model "Qwen full-context" "${QWEN_FULL_URL}" 450 "${QWEN_FULL_CONTAINER}"
+  wait_for_model "Qwen vLLM/EXL3" "${QWEN_FULL_URL}" 450 "${QWEN_FULL_CONTAINER}"
 }
 
 ensure_ninfer_source() {
@@ -290,7 +290,7 @@ ensure_ninfer_image() {
 
 ninfer_compose() {
   QWEN_NINFER_MODEL_FILE="${QWEN_NINFER_MODEL_FILE}" \
-    docker compose -f "${STACK_DIR}/qwen-ninfer-252928.compose.yaml" "$@"
+    docker compose -f "${STACK_DIR}/qwen-ninfer-nvfp4-252928.compose.yaml" "$@"
 }
 
 prepare_qwen_ninfer() {
@@ -340,7 +340,7 @@ start_qwen_ninfer() {
     QWEN_KV_CAPACITY=172032 \
     QWEN_MAX_CONCURRENCY=1 \
     QWEN_PREFILL_CHUNK=512 \
-      docker compose -f "${STACK_DIR}/qwen-ninfer-252928.compose.yaml" up -d qwen-ninfer
+      docker compose -f "${STACK_DIR}/qwen-ninfer-nvfp4-252928.compose.yaml" up -d qwen-ninfer
   else
     ninfer_compose up -d qwen-ninfer
   fi
@@ -350,7 +350,7 @@ start_qwen_ninfer() {
 prepare_qwen_sglang() {
   docker volume inspect qwen38-hf-cache >/dev/null 2>&1 || \
     docker volume create qwen38-hf-cache >/dev/null
-  docker compose -f "${STACK_DIR}/qwen-sglang-122880.compose.yaml" pull qwen
+  docker compose -f "${STACK_DIR}/qwen-sglang-nvfp4-122880.compose.yaml" pull qwen
   printf 'sglang recipe is prepared. Nothing was started.\n'
 }
 
@@ -424,9 +424,9 @@ sync_harness_context() {
 
   temp_settings="$(mktemp "${HARNESS_SETTINGS}.local-ai.XXXXXX")"
   if ! awk \
-    -v sglang_id='gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090' \
-    -v exl3_id='qwen3.8-27b-full' \
-    -v ninfer_id='qwen3.8-27b-ninfer' \
+    -v sglang_id='qwen3.8-27b-sglang-nvfp4-122880' \
+    -v exl3_id='qwen3.8-27b-vllm-exl3-k5k6-262144' \
+    -v ninfer_id='qwen3.8-27b-ninfer-nvfp4-252928' \
     -v sglang_context="${sglang_context}" \
     -v exl3_context="${exl3_context}" \
     -v ninfer_context="${ninfer_context}" '
@@ -686,6 +686,11 @@ Available Qwen recipes
   ninfer    NInfer   NVFP4         INT8      252,928           172,032   no       MTP-3
 
   * Default recipe
+
+  RECIPE    SERVED MODEL ID
+  sglang    qwen3.8-27b-sglang-nvfp4-122880
+  exl3      qwen3.8-27b-vllm-exl3-k5k6-262144
+  ninfer    qwen3.8-27b-ninfer-nvfp4-252928
 
 DESKTOP CONTEXT is selected by --desktop-use. SGLang is unchanged because its
 normal profile is already suitable for desktop use. EXL3 and NInfer reserve

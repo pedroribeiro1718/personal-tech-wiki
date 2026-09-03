@@ -47,7 +47,7 @@ services:
       - --revision
       - 6362d06d351de1e3e4356a9e104682c423f23651
       - --served-model-name
-      - qwen3.8-27b-full
+      - qwen3.8-27b-vllm-exl3-k5k6-262144
       - --quantization
       - exl3
       - --quantization-config
