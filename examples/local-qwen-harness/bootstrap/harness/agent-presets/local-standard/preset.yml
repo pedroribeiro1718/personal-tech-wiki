@@ -1,0 +1,3 @@
+name: Local Standard
+description: Standard mode using only the local SearXNG web tools.
+order: 1

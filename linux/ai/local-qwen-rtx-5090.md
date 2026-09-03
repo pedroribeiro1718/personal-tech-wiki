@@ -108,6 +108,9 @@ tool captures size-limited plain text from important results before they are
 cited. It rejects credentials, local/private networks, nonstandard ports,
 binary content, redirect abuse, oversized bodies, and slow responses; it pins
 validated DNS for each request and never executes HTML.
+The default `local-standard` preset mirrors the pinned Standard mode with its
+native `web_search` and `web_fetch` schemas disabled, so the model sees only
+the working SearXNG alternatives.
 
 Harness renders fenced `mermaid` blocks through the pinned
 `dsh-better-markdown` plugin. Its Mermaid runtime is bundled locally rather

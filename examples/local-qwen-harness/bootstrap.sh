@@ -4,6 +4,7 @@ set -euo pipefail
 STACK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 DSH_DIR="${DSH_DIR:-${HOME}/.dsh}"
 PROFILE_DIR="${DSH_DIR}/profiles/web"
+PRESET_DIR="${DSH_DIR}/.agent-presets/local-standard"
 BIN_DIR="${HOME}/.local/bin"
 
 for command_name in docker node pnpm curl sed openssl systemctl systemd-run journalctl; do
@@ -23,7 +24,7 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-mkdir -p "${PROFILE_DIR}" "${BIN_DIR}"
+mkdir -p "${PROFILE_DIR}" "${PRESET_DIR}" "${BIN_DIR}"
 
 backup_if_changed() {
   local source_file="$1"
@@ -42,6 +43,8 @@ fi
 settings_source="${STACK_DIR}/bootstrap/harness/settings.yaml"
 package_source="${STACK_DIR}/bootstrap/harness/package.json"
 patch_template="${STACK_DIR}/bootstrap/harness/cordis.patch.yml.in"
+preset_source="${STACK_DIR}/bootstrap/harness/agent-presets/local-standard/agent.cordis.yml"
+preset_metadata_source="${STACK_DIR}/bootstrap/harness/agent-presets/local-standard/preset.yml"
 rendered_patch="$(mktemp)"
 trap 'rm -f "${rendered_patch}"' EXIT
 
@@ -56,9 +59,13 @@ sed \
 backup_if_changed "${settings_source}" "${DSH_DIR}/settings.yaml"
 backup_if_changed "${package_source}" "${PROFILE_DIR}/package.json"
 backup_if_changed "${rendered_patch}" "${PROFILE_DIR}/cordis.patch.yml"
+backup_if_changed "${preset_source}" "${PRESET_DIR}/agent.cordis.yml"
+backup_if_changed "${preset_metadata_source}" "${PRESET_DIR}/preset.yml"
 install -m 0644 "${settings_source}" "${DSH_DIR}/settings.yaml"
 install -m 0644 "${package_source}" "${PROFILE_DIR}/package.json"
 install -m 0644 "${rendered_patch}" "${PROFILE_DIR}/cordis.patch.yml"
+install -m 0644 "${preset_source}" "${PRESET_DIR}/agent.cordis.yml"
+install -m 0644 "${preset_metadata_source}" "${PRESET_DIR}/preset.yml"
 
 pnpm --dir "${STACK_DIR}/mcp" install --frozen-lockfile
 pnpm --dir "${PROFILE_DIR}" install

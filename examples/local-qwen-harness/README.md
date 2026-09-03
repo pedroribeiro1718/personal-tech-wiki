@@ -64,6 +64,9 @@ tools:
 The page tool blocks credentials, private/local networks, nonstandard ports,
 binary content, redirect abuse, oversized bodies, and slow responses. DNS is
 validated and pinned for each request, and HTML is never executed.
+The default `local-standard` agent preset mirrors Harness's pinned Standard
+mode with its native `web_search` and `web_fetch` schemas disabled, so the
+model is offered only the working SearXNG tools.
 
 Harness renders fenced `mermaid` blocks through
 `dsh-better-markdown@0.1.2`. Mermaid is bundled with the plugin, so diagram

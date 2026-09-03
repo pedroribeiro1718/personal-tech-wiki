@@ -1,5 +1,6 @@
-# Replace Harness's bundled DeepSeek search provider with the local
-# SearXNG MCP adapter. Native DeepSeek web search is explicitly disabled.
+# Replace Harness's bundled DeepSeek search provider with the local SearXNG
+# MCP adapter. The local-standard agent preset disables its per-session copy
+# of the native web tool as well.
 
 - id: web
   config: {}
@@ -8,6 +9,9 @@
   disabled: true
 
 - id: tool-web
+  config:
+    search: false
+    fetch: false
   disabled: true
 
 - insert:

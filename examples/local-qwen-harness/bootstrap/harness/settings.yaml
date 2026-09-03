@@ -1,5 +1,7 @@
 ui-onboarding:
   welcomeNoticeVersion: 2026-08-13.1
+agent-presets:
+  default: local-standard
 llm-pi-ai:
   providers:
     qwen-local:
