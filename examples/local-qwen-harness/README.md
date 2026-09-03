@@ -12,13 +12,17 @@ It uses the measured EXL3 K5/K6 context build, FP8 KV, MTP-3, and the BF16
 vision tower through a digest-pinned Gilded Gnosis/vLLM image. It does not
 replace or alter the default 122,880-token SGLang service.
 
+A third, experimental `qwen-ninfer` recipe exposes 252,928 text tokens using
+NInfer, INT8 KV, and MTP-3. That is 96.5% of the native window. It is isolated
+on port 30002 and does not replace either existing service.
+
 ## Restore on a new installation
 
 Prerequisites:
 
 - NVIDIA driver working in `nvidia-smi`
 - Docker Engine, Docker Compose v2, and NVIDIA Container Toolkit
-- Node.js, pnpm, curl, sed, and OpenSSL
+- Git, Node.js, pnpm, curl, sed, OpenSSL, and `sha256sum`
 - a running systemd user manager (`systemctl --user`)
 
 From this directory, run:
@@ -40,6 +44,9 @@ local-ai start qwen harness      # any additive subset
 local-ai prepare qwen-full       # fetch the optional pinned runtime image
 local-ai start qwen-full harness # use the alternate model instead of qwen
 ./test-full-context.mjs          # direct 250K-token retrieval test
+local-ai prepare qwen-ninfer     # build pinned NInfer + fetch its 20.02-GiB artifact
+local-ai start qwen-ninfer harness
+QWEN_FULL_URL=http://127.0.0.1:30002 QWEN_FULL_MODEL=qwen3.8-27b-ninfer ./test-full-context.mjs 245000
 local-ai status
 local-ai logs
 local-ai stop qwen               # release VRAM only
@@ -47,18 +54,19 @@ local-ai start qwen              # reload the model only
 local-ai stop                    # all three
 ```
 
-The valid targets are `qwen`, `qwen-full`, `harness`, and `searxng`; list one
-or several in any order. With no targets, `start` starts the original `qwen`,
-Harness, and SearXNG. `stop` also stops `qwen-full` if it exists. Harness
-runs as a transient user-systemd service, and `local-ai logs` reads its journal.
+The valid targets are `qwen`, `qwen-full`, `qwen-ninfer`, `harness`, and
+`searxng`; list one or several in any order. With no targets, `start` starts
+the original `qwen`, Harness, and SearXNG. `stop` also stops both alternatives
+if they exist. Harness runs as a transient user-systemd service, and
+`local-ai logs` reads its journal.
 The transient unit provides reliable process-tree cleanup without installing or
-enabling a boot service. Nothing starts at boot, and both Docker services use
+enabling a boot service. Nothing starts at boot, and all Docker services use
 `restart: "no"`.
 
 `local-ai stop qwen` releases its CUDA allocation while leaving Harness and
 SearXNG alone. `model-start` and `model-stop` remain as compatibility aliases.
-The two model targets are mutually exclusive on the single GPU. Select
-`qwen3.8-27b-full` in Harness after starting `qwen-full`.
+The three model targets are mutually exclusive on the single GPU. Select the
+matching model in Harness after starting an alternate target.
 
 ## Optional native 262K profile
 
@@ -98,6 +106,41 @@ It plants codes near the start, middle, and end, sizes the prompt with the
 server tokenizer, and requires exact retrieval. This proves that the long
 window is usable; it is not a general long-context reasoning benchmark.
 
+## Optional NInfer 252,928-token profile
+
+Prepare once, then start it instead of either other model service:
+
+```bash
+local-ai prepare qwen-ninfer
+local-ai stop qwen qwen-full
+local-ai start qwen-ninfer searxng harness
+```
+
+Preparation checks out the pinned NInfer source, builds its CUDA 13.1 image,
+downloads the pinned 20.02-GiB `.ninfer` artifact, and verifies its exact size
+and SHA-256. It starts nothing. Downloads can resume after interruption.
+
+In Harness, select `qwen3.8-27b-ninfer`. This route is text-only because
+NInfer's qualified vision profile reserves enough memory to reduce context to
+81,920 tokens. The max-context profile instead uses 252,928 tokens, INT8 KV,
+MTP-3, two-request scheduling, and prefix reuse. Reasoning and tool-call
+parsing remain supported; Harness still executes the SearXNG tools.
+
+The profile needs an almost otherwise-idle 32-GB GPU. `local-ai` refuses to
+start it unless all but roughly 1,080 MiB of VRAM is free. Run the direct test
+after the endpoint reports ready:
+
+```bash
+QWEN_FULL_URL=http://127.0.0.1:30002 \
+QWEN_FULL_MODEL=qwen3.8-27b-ninfer \
+  ./test-full-context.mjs 245000
+
+local-ai stop qwen-ninfer
+```
+
+The service binds only to `http://127.0.0.1:30002/v1`. Source, build products,
+and model data live in the user cache rather than this repository.
+
 The SearXNG browser interface is available at
 `http://127.0.0.1:8888`.
 
@@ -122,7 +165,7 @@ Harness renders fenced `mermaid` blocks through
 rendering does not depend on a CDN. After restoring or changing the plugin,
 reload the Harness page once.
 
-See `qwen.compose.yaml` and `qwen-full.compose.yaml` for every inference
-parameter, and `VERSIONS.md` for captured image/model revisions. Model caches
-are large and are not part of this bundle; a fresh machine downloads them into
-Docker volumes.
+See `qwen.compose.yaml`, `qwen-full.compose.yaml`, and
+`qwen-ninfer.compose.yaml` for every inference parameter, and `VERSIONS.md`
+for captured source/image/model revisions. Model caches are large and are not
+part of this bundle; a fresh machine downloads them separately.

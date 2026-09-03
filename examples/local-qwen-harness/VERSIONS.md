@@ -12,6 +12,10 @@ Captured on 2026-09-03 from the working RTX 5090 setup.
 | Full-context vLLM image | `voipmonitor/vllm@sha256:820181fbbc975cd5291c411cda9771d58fecee1636d916f508f47230df20592b` |
 | Full-context model | `malaiwah/Qwen3.8-27B-EXL3-K5K6-context` revision `6362d06d351de1e3e4356a9e104682c423f23651` |
 | Full-context runtime overlays | `malaiwah/qwen38-27b-exl3` commit `8558b8ca3bba028f852f4b53167b79b4cd552f93`; four file hashes are enforced by `local-ai` |
+| NInfer source | `Neroued/ninfer` commit `a140e7ae82a11ed2f370a4d8f2cc16268a3790b8` |
+| NInfer model artifact | `neroued/Qwen3.8-27B-nvfp4-NInfer` revision `204e3d92c30d9d05f3300d2f52e443ad1edf6ddf`; `qwen3_8_27b_nvfp4.ninfer`, 21,492,695,040 bytes, SHA-256 `bb3360522a06e136e0367f5703414d26272b7285c8a6ab6194135c17dbd81b32` |
+| NInfer CUDA build base | `nvidia/cuda:13.1.2-devel-ubuntu24.04@sha256:952e42d23230610a2714c8484f38e9c934ed68e6f9c9c7fac62dcd5f98858a6e` |
+| NInfer CUDA runtime base | `nvidia/cuda:13.1.2-runtime-ubuntu24.04@sha256:f0a6b69a753c1718da17e0d8864cd15c559960c6b68d4045c2d4d2bad0e6a87f` |
 | SearXNG image | `searxng/searxng:latest@sha256:8486daaebc65adacfe434be38b991cf90da92d3fd80ae9f0ab1409ba65664e28` |
 | SearXNG application | `2026.9.2-05cd77f71` |
 | DeepSeek Harness | `@deepseek-ai/dsh@0.1.1-rc.2` |

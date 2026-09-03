@@ -11,13 +11,25 @@ QWEN_FULL_URL="http://127.0.0.1:30001/v1/models"
 QWEN_FULL_PATCH_COMMIT="8558b8ca3bba028f852f4b53167b79b4cd552f93"
 QWEN_FULL_PATCH_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/local-qwen-harness/qwen38-exl3-${QWEN_FULL_PATCH_COMMIT:0:12}"
 QWEN_FULL_PATCH_BASE="https://raw.githubusercontent.com/malaiwah/qwen38-27b-exl3/${QWEN_FULL_PATCH_COMMIT}/tools"
+QWEN_NINFER_CONTAINER="qwen38-ninfer"
+QWEN_NINFER_URL="http://127.0.0.1:30002/v1/models"
+QWEN_NINFER_SOURCE_COMMIT="a140e7ae82a11ed2f370a4d8f2cc16268a3790b8"
+QWEN_NINFER_SOURCE_URL="https://github.com/Neroued/ninfer.git"
+QWEN_NINFER_SOURCE_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/local-qwen-harness/ninfer-${QWEN_NINFER_SOURCE_COMMIT:0:12}"
+QWEN_NINFER_IMAGE="local/qwen-ninfer:${QWEN_NINFER_SOURCE_COMMIT:0:12}"
+QWEN_NINFER_MODEL_REVISION="204e3d92c30d9d05f3300d2f52e443ad1edf6ddf"
+QWEN_NINFER_MODEL_SHA256="bb3360522a06e136e0367f5703414d26272b7285c8a6ab6194135c17dbd81b32"
+QWEN_NINFER_MODEL_SIZE="21492695040"
+QWEN_NINFER_MODEL_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/local-qwen-harness/ninfer-model-${QWEN_NINFER_MODEL_REVISION:0:12}"
+QWEN_NINFER_MODEL_FILE="${QWEN_NINFER_MODEL_DIR}/qwen3_8_27b_nvfp4.ninfer"
+QWEN_NINFER_MODEL_URL="https://huggingface.co/neroued/Qwen3.8-27B-nvfp4-NInfer/resolve/${QWEN_NINFER_MODEL_REVISION}/qwen3_8_27b_nvfp4.ninfer?download=true"
 HARNESS_URL="http://127.0.0.1:3080"
 DSH_PACKAGE="@deepseek-ai/dsh@0.1.1-rc.2"
 HARNESS_UNIT="local-qwen-harness.service"
 
 start_qwen() {
-  if container_running "${QWEN_FULL_CONTAINER}"; then
-    printf 'qwen-full is already using the GPU. Stop it first: local-ai stop qwen-full\n' >&2
+  if container_running "${QWEN_FULL_CONTAINER}" || container_running "${QWEN_NINFER_CONTAINER}"; then
+    printf 'Another model target is already using the GPU. Stop it before starting qwen.\n' >&2
     return 1
   fi
   if docker container inspect "${QWEN_CONTAINER}" >/dev/null 2>&1; then
@@ -35,6 +47,7 @@ wait_for_model() {
   local label="$1"
   local url="$2"
   local attempts="$3"
+  local container_name="$4"
 
   printf 'Waiting for %s to become ready' "${label}"
   for _ in $(seq 1 "${attempts}"); do
@@ -45,13 +58,13 @@ wait_for_model() {
     printf '.'
     sleep 2
   done
-  printf '\n%s did not become ready. Inspect: docker logs %s\n' "${label}" \
-    "$([[ "${label}" == "Qwen full-context" ]] && printf '%s' "${QWEN_FULL_CONTAINER}" || printf '%s' "${QWEN_CONTAINER}")" >&2
+  printf '\n%s did not become ready. Inspect: docker logs %s\n' \
+    "${label}" "${container_name}" >&2
   return 1
 }
 
 wait_for_qwen() {
-  wait_for_model "Qwen" "${QWEN_URL}" 180
+  wait_for_model "Qwen" "${QWEN_URL}" 180 "${QWEN_CONTAINER}"
 }
 
 verify_full_patches() {
@@ -143,14 +156,157 @@ check_qwen_full_memory() {
 }
 
 start_qwen_full() {
-  if container_running "${QWEN_CONTAINER}"; then
-    printf 'qwen is already using the GPU. Stop it first: local-ai stop qwen\n' >&2
+  if container_running "${QWEN_CONTAINER}" || container_running "${QWEN_NINFER_CONTAINER}"; then
+    printf 'Another model target is already using the GPU. Stop it before starting qwen-full.\n' >&2
     return 1
   fi
   check_qwen_full_memory
   ensure_full_patches
   full_compose up -d qwen-full
-  wait_for_model "Qwen full-context" "${QWEN_FULL_URL}" 450
+  wait_for_model "Qwen full-context" "${QWEN_FULL_URL}" 450 "${QWEN_FULL_CONTAINER}"
+}
+
+ensure_ninfer_source() {
+  local temp_dir
+  local source_head
+  local source_status
+
+  if [[ -d "${QWEN_NINFER_SOURCE_DIR}/.git" ]]; then
+    source_head="$(git -C "${QWEN_NINFER_SOURCE_DIR}" rev-parse HEAD 2>/dev/null || true)"
+    source_status="$(git -C "${QWEN_NINFER_SOURCE_DIR}" status --porcelain --untracked-files=normal 2>/dev/null || true)"
+    if [[ "${source_head}" == "${QWEN_NINFER_SOURCE_COMMIT}" && -z "${source_status}" ]]; then
+      return 0
+    fi
+    printf 'Existing NInfer source cache is modified or not at the pinned revision: %s\n' \
+      "${QWEN_NINFER_SOURCE_DIR}" >&2
+    printf 'Move it aside, then run: local-ai prepare qwen-ninfer\n' >&2
+    return 1
+  fi
+  if [[ -e "${QWEN_NINFER_SOURCE_DIR}" ]]; then
+    printf 'NInfer source cache path exists but is not a Git checkout: %s\n' \
+      "${QWEN_NINFER_SOURCE_DIR}" >&2
+    return 1
+  fi
+
+  mkdir -p "$(dirname -- "${QWEN_NINFER_SOURCE_DIR}")"
+  temp_dir="$(mktemp -d "$(dirname -- "${QWEN_NINFER_SOURCE_DIR}")/.ninfer-source.XXXXXX")"
+  if ! git clone --filter=blob:none --no-checkout \
+    "${QWEN_NINFER_SOURCE_URL}" "${temp_dir}/source"; then
+    rm -rf -- "${temp_dir}"
+    return 1
+  fi
+  if ! git -C "${temp_dir}/source" checkout --detach "${QWEN_NINFER_SOURCE_COMMIT}"; then
+    rm -rf -- "${temp_dir}"
+    return 1
+  fi
+  mv -- "${temp_dir}/source" "${QWEN_NINFER_SOURCE_DIR}"
+  rmdir -- "${temp_dir}"
+  printf 'Pinned NInfer source at %s\n' "${QWEN_NINFER_SOURCE_DIR}"
+}
+
+verify_ninfer_model() {
+  [[ -f "${QWEN_NINFER_MODEL_FILE}" ]] || return 1
+  [[ "$(stat -c '%s' "${QWEN_NINFER_MODEL_FILE}")" == "${QWEN_NINFER_MODEL_SIZE}" ]] || return 1
+  printf '%s  %s\n' "${QWEN_NINFER_MODEL_SHA256}" "${QWEN_NINFER_MODEL_FILE}" | \
+    sha256sum -c - >/dev/null
+}
+
+ensure_ninfer_model() {
+  local current_size=0
+
+  if verify_ninfer_model; then
+    return 0
+  fi
+  if [[ -f "${QWEN_NINFER_MODEL_FILE}" ]]; then
+    current_size="$(stat -c '%s' "${QWEN_NINFER_MODEL_FILE}")"
+    if (( current_size >= QWEN_NINFER_MODEL_SIZE )); then
+      printf 'Existing NInfer artifact failed size or checksum verification: %s\n' \
+        "${QWEN_NINFER_MODEL_FILE}" >&2
+      printf 'Move it aside, then run: local-ai prepare qwen-ninfer\n' >&2
+      return 1
+    fi
+    printf 'Resuming NInfer model download at %s of %s bytes.\n' \
+      "${current_size}" "${QWEN_NINFER_MODEL_SIZE}"
+  fi
+
+  mkdir -p "${QWEN_NINFER_MODEL_DIR}"
+  if command -v aria2c >/dev/null 2>&1; then
+    aria2c --continue=true --auto-file-renaming=false --file-allocation=none \
+      --max-connection-per-server=4 --split=4 \
+      --dir="${QWEN_NINFER_MODEL_DIR}" --out="$(basename -- "${QWEN_NINFER_MODEL_FILE}")" \
+      "${QWEN_NINFER_MODEL_URL}"
+  else
+    curl -fL --retry 3 --continue-at - --output "${QWEN_NINFER_MODEL_FILE}" \
+      "${QWEN_NINFER_MODEL_URL}"
+  fi
+  if ! verify_ninfer_model; then
+    printf 'Downloaded NInfer artifact failed size or checksum verification: %s\n' \
+      "${QWEN_NINFER_MODEL_FILE}" >&2
+    return 1
+  fi
+  printf 'Verified NInfer model artifact at %s\n' "${QWEN_NINFER_MODEL_FILE}"
+}
+
+ensure_ninfer_image() {
+  local image_revision
+
+  image_revision="$(docker image inspect --format \
+    '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
+    "${QWEN_NINFER_IMAGE}" 2>/dev/null || true)"
+  if [[ "${image_revision}" == "${QWEN_NINFER_SOURCE_COMMIT}" ]]; then
+    return 0
+  fi
+  ensure_ninfer_source
+  docker build \
+    --build-arg "NINFER_SOURCE_REVISION=${QWEN_NINFER_SOURCE_COMMIT}" \
+    --file "${STACK_DIR}/ninfer.Dockerfile" \
+    --tag "${QWEN_NINFER_IMAGE}" \
+    "${QWEN_NINFER_SOURCE_DIR}"
+}
+
+ninfer_compose() {
+  QWEN_NINFER_MODEL_FILE="${QWEN_NINFER_MODEL_FILE}" \
+    docker compose -f "${STACK_DIR}/qwen-ninfer.compose.yaml" "$@"
+}
+
+prepare_qwen_ninfer() {
+  ensure_ninfer_source
+  ensure_ninfer_image
+  ensure_ninfer_model
+  printf 'qwen-ninfer is prepared. Nothing was started.\n'
+}
+
+check_qwen_ninfer_memory() {
+  local total_mib
+  local free_mib
+  local required_mib
+
+  if ! IFS=, read -r total_mib free_mib < <(
+    nvidia-smi --query-gpu=memory.total,memory.free --format=csv,noheader,nounits 2>/dev/null
+  ); then
+    printf 'Cannot query the NVIDIA GPU; qwen-ninfer startup was not attempted.\n' >&2
+    return 1
+  fi
+  required_mib=$((total_mib - 1080))
+  if (( free_mib < required_mib )); then
+    printf 'qwen-ninfer needs approximately %s MiB free for its qualified 252,928-token profile; only %s MiB is free.\n' \
+      "${required_mib}" "${free_mib}" >&2
+    printf 'Close GPU applications and stop the graphical session before retrying; startup was not attempted.\n' >&2
+    return 1
+  fi
+}
+
+start_qwen_ninfer() {
+  if container_running "${QWEN_CONTAINER}" || container_running "${QWEN_FULL_CONTAINER}"; then
+    printf 'Another model target is already using the GPU. Stop it before starting qwen-ninfer.\n' >&2
+    return 1
+  fi
+  check_qwen_ninfer_memory
+  ensure_ninfer_source
+  ensure_ninfer_image
+  ensure_ninfer_model
+  ninfer_compose up -d qwen-ninfer
+  wait_for_model "Qwen NInfer" "${QWEN_NINFER_URL}" 450 "${QWEN_NINFER_CONTAINER}"
 }
 
 start_harness() {
@@ -214,9 +370,9 @@ validate_targets() {
 
   for target_name in "$@"; do
     case "${target_name}" in
-      qwen|qwen-full|harness|searxng|all) ;;
+      qwen|qwen-full|qwen-ninfer|harness|searxng|all) ;;
       *)
-        printf 'Unknown target: %s (expected qwen, qwen-full, harness, searxng, or all)\n' "${target_name}" >&2
+        printf 'Unknown target: %s (expected qwen, qwen-full, qwen-ninfer, harness, searxng, or all)\n' "${target_name}" >&2
         return 2
         ;;
     esac
@@ -250,14 +406,18 @@ target_requested() {
 }
 
 start_targets() {
+  local model_count=0
+
   if (( $# == 0 )); then
     set -- all
   fi
   validate_targets "$@"
 
-  if target_explicitly_requested qwen-full "$@" && \
-    (target_requested qwen "$@" || target_explicitly_requested all "$@"); then
-    printf 'qwen and qwen-full cannot run together on one GPU. Select only one model target.\n' >&2
+  target_requested qwen "$@" && ((model_count += 1))
+  target_explicitly_requested qwen-full "$@" && ((model_count += 1))
+  target_explicitly_requested qwen-ninfer "$@" && ((model_count += 1))
+  if (( model_count > 1 )); then
+    printf 'qwen, qwen-full, and qwen-ninfer cannot run together on one GPU. Select only one model target.\n' >&2
     return 2
   fi
 
@@ -270,6 +430,9 @@ start_targets() {
   fi
   if target_explicitly_requested qwen-full "$@"; then
     start_qwen_full
+  fi
+  if target_explicitly_requested qwen-ninfer "$@"; then
+    start_qwen_ninfer
   fi
   if target_requested harness "$@"; then
     start_harness
@@ -305,6 +468,10 @@ stop_targets() {
     docker stop --time 60 "${QWEN_FULL_CONTAINER}" >/dev/null 2>&1 || true
     printf 'Qwen full-context stopped; its CUDA allocation has been released.\n'
   fi
+  if target_requested qwen-ninfer "$@"; then
+    docker stop --time 60 "${QWEN_NINFER_CONTAINER}" >/dev/null 2>&1 || true
+    printf 'Qwen NInfer stopped; its CUDA allocation has been released.\n'
+  fi
   if target_requested searxng "$@"; then
     docker compose -f "${STACK_DIR}/compose.yaml" stop searxng >/dev/null
     printf 'SearXNG stopped.\n'
@@ -321,6 +488,7 @@ status() {
     printf 'Harness: stopped\n\n'
   fi
   docker ps -a --filter "name=^/${QWEN_CONTAINER}$" --filter "name=^/${QWEN_FULL_CONTAINER}$" \
+    --filter "name=^/${QWEN_NINFER_CONTAINER}$" \
     --filter "name=^/qwen-searxng$" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
   printf '\nGPU processes:\n'
   nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null || true
@@ -337,8 +505,9 @@ Usage: local-ai COMMAND [TARGET ...]
 Commands:
   start [TARGET ...]  Start selected targets; no targets means all
   stop [TARGET ...]   Stop selected targets; no targets means all
-                      Targets: qwen, qwen-full, harness, searxng, all
-  prepare qwen-full   Download and verify the alternate runtime (not weights)
+                      Targets: qwen, qwen-full, qwen-ninfer, harness, searxng, all
+  prepare qwen-full   Download and verify the EXL3 alternate runtime (not weights)
+  prepare qwen-ninfer Build NInfer and download/verify its 20.02-GiB artifact
   model-start  Load Qwen onto the GPU without starting Harness
   model-stop   Stop Qwen and release its GPU memory
   status       Show Harness, container, and GPU-process status
@@ -350,8 +519,14 @@ case "${1:-}" in
   start) shift; start_targets "$@" ;;
   prepare)
     shift
-    [[ "${1:-}" == "qwen-full" && $# == 1 ]] || { usage; exit 2; }
-    prepare_qwen_full
+    if [[ "${1:-}" == "qwen-full" && $# == 1 ]]; then
+      prepare_qwen_full
+    elif [[ "${1:-}" == "qwen-ninfer" && $# == 1 ]]; then
+      prepare_qwen_ninfer
+    else
+      usage
+      exit 2
+    fi
     ;;
   model-start) model_start ;;
   model-stop) model_stop ;;

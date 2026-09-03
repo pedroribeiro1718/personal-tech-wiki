@@ -7,7 +7,7 @@ PROFILE_DIR="${DSH_DIR}/profiles/web"
 PRESET_DIR="${DSH_DIR}/.agent-presets/local-standard"
 BIN_DIR="${HOME}/.local/bin"
 
-for command_name in docker node pnpm curl sed openssl systemctl systemd-run journalctl; do
+for command_name in docker git node pnpm curl sed openssl sha256sum systemctl systemd-run journalctl; do
   if ! command -v "${command_name}" >/dev/null 2>&1; then
     printf 'Missing prerequisite: %s\n' "${command_name}" >&2
     exit 1
@@ -84,6 +84,8 @@ Manual commands:
   ${BIN_DIR}/local-ai start
   ${BIN_DIR}/local-ai prepare qwen-full
   ${BIN_DIR}/local-ai start qwen-full harness
+  ${BIN_DIR}/local-ai prepare qwen-ninfer
+  ${BIN_DIR}/local-ai start qwen-ninfer harness
   ${BIN_DIR}/local-ai stop qwen
   ${BIN_DIR}/local-ai start qwen
   ${BIN_DIR}/local-ai stop

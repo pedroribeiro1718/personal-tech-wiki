@@ -47,10 +47,17 @@ async function post(path, body) {
 }
 
 async function tokenCount(prompt) {
-  const result = await post("/tokenize", { model, prompt, add_special_tokens: false });
-  if (Number.isInteger(result.count)) return result.count;
-  if (Array.isArray(result.tokens)) return result.tokens.length;
-  throw new Error(`/tokenize returned no token count: ${JSON.stringify(result).slice(0, 1000)}`);
+  try {
+    const result = await post("/tokenize", { model, prompt, add_special_tokens: false });
+    if (Number.isInteger(result.count)) return result.count;
+    if (Array.isArray(result.tokens)) return result.tokens.length;
+  } catch (error) {
+    if (!String(error).includes("HTTP 404")) throw error;
+  }
+
+  const result = await post("/v1/responses/input_tokens", { model, input: prompt });
+  if (Number.isInteger(result.input_tokens)) return result.input_tokens;
+  throw new Error(`token-count endpoint returned no count: ${JSON.stringify(result).slice(0, 1000)}`);
 }
 
 let lines = Math.max(100, Math.floor(requestedTokens / 14));

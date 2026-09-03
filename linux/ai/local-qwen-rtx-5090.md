@@ -15,6 +15,10 @@ There is also an optional native-262K profile. It uses a measured EXL3 K5/K6
 context build with FP8 KV, MTP-3, vision, reasoning, and tool parsing. It is a
 separate target and does not change the working SGLang default.
 
+A third, experimental NInfer profile trades 3.5% of the native window for a
+252,928-token text route with INT8 KV and MTP-3. It is also separate and keeps
+the first two recipes intact.
+
 The complete, secret-free files are in
 [`examples/local-qwen-harness/`](../../examples/local-qwen-harness/).
 
@@ -25,7 +29,7 @@ Install and verify:
 1. A current NVIDIA driver (`nvidia-smi` must show the GPU).
 2. Docker Engine and Docker Compose v2.
 3. NVIDIA Container Toolkit configured for Docker.
-4. Node.js 20 or newer, pnpm, curl, sed, and OpenSSL.
+4. Git, Node.js 20 or newer, pnpm, curl, sed, OpenSSL, and `sha256sum`.
 5. A running systemd user manager (`systemctl --user`).
 
 Then:
@@ -42,8 +46,9 @@ Hugging Face cache volume, and installs `~/.local/bin/local-ai`. It starts
 nothing and enables no boot service. If pnpm asks which trusted Harness
 packages may run build scripts, select the required packages and continue.
 
-Model weights are intentionally not stored in Git. The first start downloads
-the pinned main and draft snapshots into the Docker volume.
+Model weights are intentionally not stored in Git. The default and EXL3 model
+snapshots download into Docker volumes; NInfer's artifact downloads during its
+explicit `prepare` command.
 
 ## Everyday use
 
@@ -59,6 +64,11 @@ local-ai stop harness searxng
 local-ai prepare qwen-full
 local-ai stop qwen
 local-ai start qwen-full harness
+
+# Experimental NInfer 252,928-token text profile
+local-ai prepare qwen-ninfer
+local-ai stop qwen qwen-full
+local-ai start qwen-ninfer harness
 
 # Inspect Harness, container, and GPU status
 local-ai status
@@ -78,10 +88,10 @@ local-ai stop
 
 Harness runs as a transient user-systemd service so its complete process tree
 can be stopped reliably. It is created only by the manual command and is not
-enabled at boot. Valid targets are `qwen`, `qwen-full`, `harness`, and
-`searxng`. Omitting targets starts the normal three-component stack; stopping
-with no targets also stops the alternate model if it exists. The two model
-targets cannot share the single GPU.
+enabled at boot. Valid targets are `qwen`, `qwen-full`, `qwen-ninfer`,
+`harness`, and `searxng`. Omitting targets starts the normal three-component
+stack; stopping with no targets also stops the alternate models if they exist.
+The three model targets cannot share the single GPU.
 
 The direct GPU-unload command is `docker stop qwen38`. The next
 `docker start qwen38` reloads the cached model.
@@ -112,6 +122,34 @@ because it does not fit alongside the native window and qualified vision
 ceiling on 32 GB. The test proves capacity plus basic retrieval, not general
 long-context reasoning.
 
+## NInfer 252,928-token test profile
+
+```bash
+local-ai prepare qwen-ninfer       # pinned source build + verified 20.02-GiB artifact
+local-ai stop qwen qwen-full
+local-ai start qwen-ninfer harness
+
+QWEN_FULL_URL=http://127.0.0.1:30002 \
+QWEN_FULL_MODEL=qwen3.8-27b-ninfer \
+  ./test-full-context.mjs 245000
+
+local-ai stop qwen-ninfer          # release VRAM
+```
+
+Select `qwen3.8-27b-ninfer` in Harness. The OpenAI-compatible endpoint is
+`http://127.0.0.1:30002/v1`. The profile uses 252,928 context, INT8 KV,
+MTP-3, two-request scheduling, and prefix reuse. It supports reasoning and
+tool calls; Harness remains responsible for executing the SearXNG tools.
+
+This route is deliberately text-only. NInfer can enable Qwen vision, but its
+qualified vision allocation reduces the available context to 81,920 tokens,
+which defeats this recipe's purpose. The full-context startup guard requires
+all but about 1,080 MiB of the 5090's VRAM to be free.
+
+`prepare` starts nothing. It checks out the pinned NInfer commit, builds the
+CUDA 13.1 container, downloads a resumable `.ninfer` artifact, and verifies
+its exact size and SHA-256. The model and build caches are not committed.
+
 ## Important pinned settings
 
 The authoritative command is
@@ -129,7 +167,7 @@ Its main choices are:
 - reasoning parser: `qwen3`
 - tool-call parser: `qwen3_coder`
 
-The SGLang/SearXNG image digests and both Hugging Face revisions are pinned.
+The SGLang/SearXNG image digests and Hugging Face/source revisions are pinned.
 See [`VERSIONS.md`](../../examples/local-qwen-harness/VERSIONS.md) before
 updating them.
 
@@ -161,4 +199,4 @@ the Harness page once.
 - `.env`, model weights, dependencies, credentials, and runtime state are not
   committed.
 - `bootstrap.sh` generates a fresh SearXNG secret and reinstalls dependencies.
-- Both containers use `restart: "no"`; startup is always manual.
+- All containers use `restart: "no"`; startup is always manual.
