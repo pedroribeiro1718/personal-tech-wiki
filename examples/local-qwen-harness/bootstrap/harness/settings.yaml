@@ -13,6 +13,15 @@ llm-pi-ai:
           input:
             - text
             - image
+    qwen-full-local:
+      apiKeyEnv: QWEN_LOCAL_API_KEY
+      api: openai-completions
+      baseURL: http://127.0.0.1:30001/v1
+      models:
+        - id: qwen3.8-27b-full
+          input:
+            - text
+            - image
 agent-default-model:
   provider: qwen-local
   model: gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090

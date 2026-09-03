@@ -6,11 +6,20 @@ SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 STACK_DIR="$(cd -- "$(dirname -- "${SCRIPT_PATH}")" && pwd)"
 QWEN_CONTAINER="qwen38"
 QWEN_URL="http://127.0.0.1:30000/v1/models"
+QWEN_FULL_CONTAINER="qwen38-full"
+QWEN_FULL_URL="http://127.0.0.1:30001/v1/models"
+QWEN_FULL_PATCH_COMMIT="8558b8ca3bba028f852f4b53167b79b4cd552f93"
+QWEN_FULL_PATCH_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/local-qwen-harness/qwen38-exl3-${QWEN_FULL_PATCH_COMMIT:0:12}"
+QWEN_FULL_PATCH_BASE="https://raw.githubusercontent.com/malaiwah/qwen38-27b-exl3/${QWEN_FULL_PATCH_COMMIT}/tools"
 HARNESS_URL="http://127.0.0.1:3080"
 DSH_PACKAGE="@deepseek-ai/dsh@0.1.1-rc.2"
 HARNESS_UNIT="local-qwen-harness.service"
 
 start_qwen() {
+  if container_running "${QWEN_FULL_CONTAINER}"; then
+    printf 'qwen-full is already using the GPU. Stop it first: local-ai stop qwen-full\n' >&2
+    return 1
+  fi
   if docker container inspect "${QWEN_CONTAINER}" >/dev/null 2>&1; then
     docker start "${QWEN_CONTAINER}" >/dev/null
   else
@@ -18,18 +27,130 @@ start_qwen() {
   fi
 }
 
-wait_for_qwen() {
-  printf 'Waiting for Qwen to become ready'
-  for _ in $(seq 1 180); do
-    if curl -fsS --max-time 2 "${QWEN_URL}" >/dev/null 2>&1; then
-      printf '\nQwen is ready: %s\n' "${QWEN_URL}"
+container_running() {
+  [[ "$(docker container inspect --format '{{.State.Running}}' "$1" 2>/dev/null || true)" == "true" ]]
+}
+
+wait_for_model() {
+  local label="$1"
+  local url="$2"
+  local attempts="$3"
+
+  printf 'Waiting for %s to become ready' "${label}"
+  for _ in $(seq 1 "${attempts}"); do
+    if curl -fsS --max-time 2 "${url}" >/dev/null 2>&1; then
+      printf '\n%s is ready: %s\n' "${label}" "${url}"
       return 0
     fi
     printf '.'
     sleep 2
   done
-  printf '\nQwen did not become ready within 6 minutes.\n' >&2
+  printf '\n%s did not become ready. Inspect: docker logs %s\n' "${label}" \
+    "$([[ "${label}" == "Qwen full-context" ]] && printf '%s' "${QWEN_FULL_CONTAINER}" || printf '%s' "${QWEN_CONTAINER}")" >&2
   return 1
+}
+
+wait_for_qwen() {
+  wait_for_model "Qwen" "${QWEN_URL}" 180
+}
+
+verify_full_patches() {
+  local patch_root="$1"
+  local failed=0
+
+  printf '%s  %s\n' \
+    2df9d0799fd323798cead1edb773cab556c94798eec263ee03ded35408c6e4ee \
+    "${patch_root}/tools/vllm-exl3-prefill-dispatch.py" | sha256sum -c - >/dev/null || failed=1
+  printf '%s  %s\n' \
+    04d2bd587b37142f4f55a8d00b9f8c907309490168cb7fcdfde450531df2c9e7 \
+    "${patch_root}/tools/vllm-qwen3_5-embed-quant-config.py" | sha256sum -c - >/dev/null || failed=1
+  printf '%s  %s\n' \
+    0090dc131f0eaf439b24d50baf4def9f10b052864c76e695053d64f66b274bab \
+    "${patch_root}/tools/vllm-qwen3_5_mtp-embed-quant-config.py" | sha256sum -c - >/dev/null || failed=1
+  printf '%s  %s\n' \
+    b431c1066dfee3ed56bfa7e71cc8606f9afadc300f22d7fc542c43835d1b22bf \
+    "${patch_root}/tools/vllm-mamba-align-scheduler.py" | sha256sum -c - >/dev/null || failed=1
+  return "${failed}"
+}
+
+ensure_full_patches() {
+  local temp_dir
+  local filename
+
+  if verify_full_patches "${QWEN_FULL_PATCH_DIR}" 2>/dev/null; then
+    return 0
+  fi
+  if [[ -e "${QWEN_FULL_PATCH_DIR}" ]]; then
+    printf 'Existing full-context patch cache failed verification: %s\n' "${QWEN_FULL_PATCH_DIR}" >&2
+    printf 'Move it aside, then run: local-ai prepare qwen-full\n' >&2
+    return 1
+  fi
+
+  mkdir -p "$(dirname -- "${QWEN_FULL_PATCH_DIR}")"
+  temp_dir="$(mktemp -d "$(dirname -- "${QWEN_FULL_PATCH_DIR}")/.qwen-full-patches.XXXXXX")"
+  mkdir -p "${temp_dir}/tools"
+  for filename in \
+    vllm-exl3-prefill-dispatch.py \
+    vllm-qwen3_5-embed-quant-config.py \
+    vllm-qwen3_5_mtp-embed-quant-config.py \
+    vllm-mamba-align-scheduler.py; do
+    if ! curl -fL --retry 3 --output "${temp_dir}/tools/${filename}" \
+      "${QWEN_FULL_PATCH_BASE}/${filename}"; then
+      rm -rf -- "${temp_dir}"
+      return 1
+    fi
+  done
+  if ! verify_full_patches "${temp_dir}"; then
+    rm -rf -- "${temp_dir}"
+    printf 'Downloaded full-context patches failed checksum verification.\n' >&2
+    return 1
+  fi
+  mv -- "${temp_dir}" "${QWEN_FULL_PATCH_DIR}"
+  printf 'Verified full-context runtime overlays at %s\n' "${QWEN_FULL_PATCH_DIR}"
+}
+
+full_compose() {
+  QWEN_FULL_PATCH_DIR="${QWEN_FULL_PATCH_DIR}" \
+    docker compose -f "${STACK_DIR}/qwen-full.compose.yaml" "$@"
+}
+
+prepare_qwen_full() {
+  ensure_full_patches
+  docker volume inspect qwen38-full-hf-cache >/dev/null 2>&1 || \
+    docker volume create qwen38-full-hf-cache >/dev/null
+  full_compose pull qwen-full
+  printf 'qwen-full runtime is prepared. Model weights download on first start.\n'
+}
+
+check_qwen_full_memory() {
+  local total_mib
+  local free_mib
+  local required_mib
+
+  if ! IFS=, read -r total_mib free_mib < <(
+    nvidia-smi --query-gpu=memory.total,memory.free --format=csv,noheader,nounits 2>/dev/null
+  ); then
+    printf 'Cannot query the NVIDIA GPU; qwen-full startup was not attempted.\n' >&2
+    return 1
+  fi
+  required_mib=$((total_mib * 955 / 1000))
+  if (( free_mib < required_mib )); then
+    printf 'qwen-full needs about %s MiB free for gpu-memory-utilization=0.955; only %s MiB is free.\n' \
+      "${required_mib}" "${free_mib}" >&2
+    printf 'Close GPU applications and stop the graphical session before retrying; startup was not attempted.\n' >&2
+    return 1
+  fi
+}
+
+start_qwen_full() {
+  if container_running "${QWEN_CONTAINER}"; then
+    printf 'qwen is already using the GPU. Stop it first: local-ai stop qwen\n' >&2
+    return 1
+  fi
+  check_qwen_full_memory
+  ensure_full_patches
+  full_compose up -d qwen-full
+  wait_for_model "Qwen full-context" "${QWEN_FULL_URL}" 450
 }
 
 start_harness() {
@@ -93,13 +214,26 @@ validate_targets() {
 
   for target_name in "$@"; do
     case "${target_name}" in
-      qwen|harness|searxng|all) ;;
+      qwen|qwen-full|harness|searxng|all) ;;
       *)
-        printf 'Unknown target: %s (expected qwen, harness, searxng, or all)\n' "${target_name}" >&2
+        printf 'Unknown target: %s (expected qwen, qwen-full, harness, searxng, or all)\n' "${target_name}" >&2
         return 2
         ;;
     esac
   done
+}
+
+target_explicitly_requested() {
+  local requested_target="$1"
+  local target_name
+  shift
+
+  for target_name in "$@"; do
+    if [[ "${target_name}" == "${requested_target}" ]]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 target_requested() {
@@ -121,12 +255,21 @@ start_targets() {
   fi
   validate_targets "$@"
 
+  if target_explicitly_requested qwen-full "$@" && \
+    (target_requested qwen "$@" || target_explicitly_requested all "$@"); then
+    printf 'qwen and qwen-full cannot run together on one GPU. Select only one model target.\n' >&2
+    return 2
+  fi
+
   if target_requested searxng "$@"; then
     docker compose -f "${STACK_DIR}/compose.yaml" up -d searxng
   fi
   if target_requested qwen "$@"; then
     start_qwen
     wait_for_qwen
+  fi
+  if target_explicitly_requested qwen-full "$@"; then
+    start_qwen_full
   fi
   if target_requested harness "$@"; then
     start_harness
@@ -158,6 +301,10 @@ stop_targets() {
     docker stop "${QWEN_CONTAINER}" >/dev/null 2>&1 || true
     printf 'Qwen stopped; its CUDA allocation has been released.\n'
   fi
+  if target_requested qwen-full "$@"; then
+    docker stop --time 60 "${QWEN_FULL_CONTAINER}" >/dev/null 2>&1 || true
+    printf 'Qwen full-context stopped; its CUDA allocation has been released.\n'
+  fi
   if target_requested searxng "$@"; then
     docker compose -f "${STACK_DIR}/compose.yaml" stop searxng >/dev/null
     printf 'SearXNG stopped.\n'
@@ -173,7 +320,8 @@ status() {
   else
     printf 'Harness: stopped\n\n'
   fi
-  docker ps -a --filter "name=^/${QWEN_CONTAINER}$" --filter "name=^/qwen-searxng$" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+  docker ps -a --filter "name=^/${QWEN_CONTAINER}$" --filter "name=^/${QWEN_FULL_CONTAINER}$" \
+    --filter "name=^/qwen-searxng$" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
   printf '\nGPU processes:\n'
   nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null || true
 }
@@ -184,12 +332,13 @@ logs() {
 
 usage() {
   cat <<'EOF'
-Usage: local-ai COMMAND
+Usage: local-ai COMMAND [TARGET ...]
 
 Commands:
   start [TARGET ...]  Start selected targets; no targets means all
   stop [TARGET ...]   Stop selected targets; no targets means all
-                      Targets: qwen, harness, searxng, all
+                      Targets: qwen, qwen-full, harness, searxng, all
+  prepare qwen-full   Download and verify the alternate runtime (not weights)
   model-start  Load Qwen onto the GPU without starting Harness
   model-stop   Stop Qwen and release its GPU memory
   status       Show Harness, container, and GPU-process status
@@ -199,6 +348,11 @@ EOF
 
 case "${1:-}" in
   start) shift; start_targets "$@" ;;
+  prepare)
+    shift
+    [[ "${1:-}" == "qwen-full" && $# == 1 ]] || { usage; exit 2; }
+    prepare_qwen_full
+    ;;
   model-start) model_start ;;
   model-stop) model_stop ;;
   stop) shift; stop_targets "$@" ;;

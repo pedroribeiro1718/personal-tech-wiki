@@ -11,6 +11,10 @@ This is the tested local-agent setup:
 - working text, image, and function-tool input
 - no DeepSeek API/search dependency and no automatic startup
 
+There is also an optional native-262K profile. It uses a measured EXL3 K5/K6
+context build with FP8 KV, MTP-3, vision, reasoning, and tool parsing. It is a
+separate target and does not change the working SGLang default.
+
 The complete, secret-free files are in
 [`examples/local-qwen-harness/`](../../examples/local-qwen-harness/).
 
@@ -51,6 +55,11 @@ local-ai start
 local-ai start qwen harness
 local-ai stop harness searxng
 
+# Optional full native context; use instead of qwen
+local-ai prepare qwen-full
+local-ai stop qwen
+local-ai start qwen-full harness
+
 # Inspect Harness, container, and GPU status
 local-ai status
 
@@ -69,11 +78,39 @@ local-ai stop
 
 Harness runs as a transient user-systemd service so its complete process tree
 can be stopped reliably. It is created only by the manual command and is not
-enabled at boot. Valid targets are `qwen`, `harness`, and `searxng`; omitting
-targets means all three.
+enabled at boot. Valid targets are `qwen`, `qwen-full`, `harness`, and
+`searxng`. Omitting targets starts the normal three-component stack; stopping
+with no targets also stops the alternate model if it exists. The two model
+targets cannot share the single GPU.
 
 The direct GPU-unload command is `docker stop qwen38`. The next
 `docker start qwen38` reloads the cached model.
+
+## Native 262K test profile
+
+```bash
+local-ai prepare qwen-full       # pinned overlays and image; starts nothing
+local-ai stop qwen
+local-ai start qwen-full harness # first start downloads the 20.7 GB snapshot
+./test-full-context.mjs          # direct ~250K-token three-needle test
+local-ai stop qwen-full          # release VRAM
+```
+
+In Harness, select `qwen3.8-27b-full`. It is served at
+`http://127.0.0.1:30001/v1` with a 262,144-token limit, FP8 KV, MTP-3,
+single-request scheduling, and image input. Its dedicated cache volume is
+`qwen38-full-hf-cache`.
+
+`local-ai` refuses to start this target unless at least 95.5% of VRAM is free.
+Close GPU applications and, if necessary, stop the graphical session first.
+This protects the driver from a repeat of the previous VRAM-exhaustion failure.
+
+The measured starting point is `gpu-memory-utilization=0.955`. RTX 5090 cards
+can differ by a few MiB; if startup says the KV allocation narrowly misses,
+raise it to `0.956` in `qwen-full.compose.yaml`. Prefix caching stays disabled
+because it does not fit alongside the native window and qualified vision
+ceiling on 32 GB. The test proves capacity plus basic retrieval, not general
+long-context reasoning.
 
 ## Important pinned settings
 

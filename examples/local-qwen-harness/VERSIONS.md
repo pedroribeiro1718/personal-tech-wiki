@@ -9,6 +9,9 @@ Captured on 2026-09-03 from the working RTX 5090 setup.
 | Main model | `gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090` revision `b8ca3826548c9a7735642feb05c3c473f1fede1f` |
 | DFlash draft model | `gittensor-model-hub/Qwen3.8-27B-DSpark-NVFP4` revision `eba1ac5a66c74902eaa95a4000a7c5eda96d8e95` |
 | Flash Attention kernel cache | `kernels-community/sgl-flash-attn3` revision `93df65eb57c95b1dc149194bca5216a9b91568a0` |
+| Full-context vLLM image | `voipmonitor/vllm@sha256:820181fbbc975cd5291c411cda9771d58fecee1636d916f508f47230df20592b` |
+| Full-context model | `malaiwah/Qwen3.8-27B-EXL3-K5K6-context` revision `6362d06d351de1e3e4356a9e104682c423f23651` |
+| Full-context runtime overlays | `malaiwah/qwen38-27b-exl3` commit `8558b8ca3bba028f852f4b53167b79b4cd552f93`; four file hashes are enforced by `local-ai` |
 | SearXNG image | `searxng/searxng:latest@sha256:8486daaebc65adacfe434be38b991cf90da92d3fd80ae9f0ab1409ba65664e28` |
 | SearXNG application | `2026.9.2-05cd77f71` |
 | DeepSeek Harness | `@deepseek-ai/dsh@0.1.1-rc.2` |
