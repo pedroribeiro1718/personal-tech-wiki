@@ -551,9 +551,9 @@ validate_targets() {
 
   for target_name in "$@"; do
     case "${target_name}" in
-      qwen|harness|harness-work|searxng|all) ;;
+      qwen|harness|searxng|all) ;;
       *)
-        printf 'Unknown target: %s (expected qwen, harness, harness-work, searxng, or all)\n' "${target_name}" >&2
+        printf 'Unknown target: %s (expected qwen, harness, searxng, or all)\n' "${target_name}" >&2
         return 2
         ;;
     esac
@@ -573,15 +573,6 @@ target_requested() {
   return 1
 }
 
-target_explicit() {
-  local requested_target="$1" target_name
-  shift
-  for target_name in "$@"; do
-    [[ "${target_name}" == "${requested_target}" ]] && return 0
-  done
-  return 1
-}
-
 validate_recipe() {
   case "$1" in
     sglang|exl3|ninfer) ;;
@@ -594,6 +585,7 @@ validate_recipe() {
 
 SELECTED_RECIPE=""
 DESKTOP_USE=0
+WORK_MODE=0
 PARSED_TARGETS=()
 
 parse_service_arguments() {
@@ -602,6 +594,7 @@ parse_service_arguments() {
 
   SELECTED_RECIPE=""
   DESKTOP_USE=0
+  WORK_MODE=0
   PARSED_TARGETS=()
   while (( $# > 0 )); do
     case "$1" in
@@ -622,6 +615,9 @@ parse_service_arguments() {
           return 2
         fi
         DESKTOP_USE=1
+        ;;
+      --work)
+        WORK_MODE=1
         ;;
       --*)
         printf 'Unknown option: %s\n' "$1" >&2
@@ -667,10 +663,7 @@ start_targets() {
     sync_harness_model "${recipe}"
   fi
   if target_requested harness "$@"; then
-    start_harness
-  fi
-  if target_explicit harness-work "$@"; then
-    start_work_harness
+    if (( WORK_MODE )); then start_work_harness; else start_harness; fi
   fi
 }
 
@@ -682,10 +675,7 @@ stop_targets() {
   validate_targets "$@"
 
   if target_requested harness "$@"; then
-    stop_harness || stop_result=$?
-  fi
-  if target_explicit harness-work "$@"; then
-    stop_work_harness || stop_result=$?
+    if (( WORK_MODE )); then stop_work_harness || stop_result=$?; else stop_harness || stop_result=$?; fi
   fi
   if target_requested qwen "$@"; then
     case "${recipe}" in
@@ -744,10 +734,11 @@ logs() {
 
   case "${target}" in
     harness)
-      journalctl --user -u "${HARNESS_UNIT}" -n 100 --no-pager
-      ;;
-    harness-work)
-      journalctl --user -u "${WORK_HARNESS_UNIT}" -n 100 --no-pager
+      if (( WORK_MODE )); then
+        journalctl --user -u "${WORK_HARNESS_UNIT}" -n 100 --no-pager
+      else
+        journalctl --user -u "${HARNESS_UNIT}" -n 100 --no-pager
+      fi
       ;;
     qwen)
       for container_name in "${QWEN_CONTAINER}" "${QWEN_FULL_CONTAINER}" "${QWEN_NINFER_CONTAINER}"; do
@@ -763,7 +754,7 @@ logs() {
       docker logs --tail 100 qwen-searxng
       ;;
     *)
-      printf 'Unknown log target: %s (expected qwen, harness, harness-work, or searxng)\n' "${target}" >&2
+      printf 'Unknown log target: %s (expected qwen, harness, or searxng)\n' "${target}" >&2
       return 2
       ;;
   esac
@@ -808,8 +799,9 @@ usage() {
 local-ai - manage the local Qwen stack
 
 USAGE
-  local-ai start [--recipe RECIPE] [--desktop-use] [TARGET ...]
-  local-ai stop [--recipe RECIPE] [TARGET ...]
+  local-ai start [--work] [--recipe RECIPE] [--desktop-use] [TARGET ...]
+  local-ai stop [--work] [--recipe RECIPE] [TARGET ...]
+  local-ai logs [--work] [TARGET]
   local-ai prepare RECIPE
   local-ai COMMAND
 
@@ -822,30 +814,32 @@ COMMANDS
   github-status     Check the isolated work-profile GitHub login
   dashboard         Open the interactive status, logs, and GPU dashboard
   status            Show Harness, container, and GPU-process status
-  logs [TARGET]     Show 100 log lines for qwen, harness, harness-work, or searxng
+  logs [--work] [TARGET]
+                    Show 100 log lines for qwen, harness, or searxng
   help              Show this help
 
 OPTIONS
   --recipe RECIPE   Qwen recipe: sglang (default), exl3, or ninfer
+  --work            Select the isolated work Harness instead of the personal one
   --desktop-use     Reserve about 5 GiB of VRAM with EXL3/NInfer; SGLang is
                     unchanged. This does not make gaming alongside Qwen viable.
 
 TARGETS
   qwen              Model server at http://127.0.0.1:30000/v1
-  harness           DeepSeek Harness at http://127.0.0.1:3080
-  harness-work      Isolated work Harness at http://127.0.0.1:3081
+  harness           Selected Harness: personal, or work when --work is present
   searxng           Private search service at http://127.0.0.1:8888
-  all               Qwen, personal Harness, and SearXNG (the default)
+  all               Qwen, selected Harness, and SearXNG (the default)
 
 EXAMPLES
   local-ai start qwen harness
   local-ai start --recipe exl3 qwen harness
-  cd COMPANY_REPO && local-ai start --recipe exl3 --desktop-use qwen harness-work searxng
+  cd COMPANY_REPO && local-ai start --work --recipe exl3 --desktop-use qwen harness searxng
   local-ai start --recipe ninfer --desktop-use qwen harness searxng
   local-ai stop qwen
   local-ai prepare ninfer
   local-ai recipes
   local-ai github-login
+  local-ai logs --work harness
   local-ai dashboard
 EOF
 }
@@ -874,6 +868,8 @@ case "${1:-}" in
   status) status ;;
   logs)
     shift
+    WORK_MODE=0
+    if [[ "${1:-}" == "--work" ]]; then WORK_MODE=1; shift; fi
     (( $# <= 1 )) || { usage >&2; exit 2; }
     logs "${1:-harness}"
     ;;

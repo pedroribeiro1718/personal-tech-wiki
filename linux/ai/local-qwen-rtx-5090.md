@@ -109,7 +109,7 @@ Harness from that checkout:
 local-ai github-login
 local-ai github-status
 cd /path/to/company/repository
-local-ai start --recipe exl3 --desktop-use qwen harness-work searxng
+local-ai start --work --recipe exl3 --desktop-use qwen harness searxng
 # Open http://127.0.0.1:3081
 ```
 
@@ -124,15 +124,15 @@ wiki.
 The work profile still has general SearXNG web search and restricted public-page
 snapshots. Never place proprietary code, credentials, internal URLs, company
 issue text, or logs in a public search query; use local and GitHub tools for
-company material. Stop or inspect it with `local-ai stop harness-work` and
-`local-ai logs harness-work`.
+company material. Stop or inspect it with `local-ai stop --work harness` and
+`local-ai logs --work harness`.
 
 Each Harness runs as a transient user-systemd service so its complete process
 tree can be stopped reliably. It is created only by the manual command and is
-not enabled at boot. Valid targets are `qwen`, `harness`, `harness-work`, and
-`searxng`; Qwen's recipe values are `sglang` (default), `exl3`, and `ninfer`.
-Omitting targets starts the selected recipe plus personal Harness and SearXNG.
-The default `all` does not start the work Harness; it must be explicit.
+not enabled at boot. Valid targets are `qwen`, `harness`, and `searxng`;
+`--work` selects the isolated work Harness instead of the personal one. Qwen's
+recipe values are `sglang` (default), `exl3`, and `ninfer`. Omitting targets
+starts the selected recipe plus the selected Harness and SearXNG.
 `local-ai stop qwen` stops every recipe unless a specific `--recipe` is
 supplied. Only one recipe can use the single GPU at a time. Harness neither
 filters its static catalog by the loaded model nor reliably derives custom
@@ -149,7 +149,7 @@ formats, context limits, vision support, and speculative-decoding method.
 `local-ai dashboard` provides Overview, Qwen log, both Harness logs, SearXNG log, and
 GPU tabs using Python's standard-library terminal UI. Switch with `Tab` or
 `1`–`6`; scroll with arrow/Page keys; use `f` to follow, `r` to refresh, and `q`
-to quit. Keep `status` and `logs [qwen|harness|harness-work|searxng]` for
+to quit. Keep `status` and `logs [qwen|harness|searxng]` for
 scripts and direct diagnostics.
 
 The supported GPU-unload command is `local-ai stop qwen`; start the desired

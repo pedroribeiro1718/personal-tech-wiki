@@ -116,7 +116,7 @@ Manual commands:
   ${BIN_DIR}/local-ai start
   ${BIN_DIR}/local-ai prepare exl3
   ${BIN_DIR}/local-ai start --recipe exl3 qwen harness
-  cd COMPANY_REPO && ${BIN_DIR}/local-ai start --recipe exl3 --desktop-use qwen harness-work searxng
+  cd COMPANY_REPO && ${BIN_DIR}/local-ai start --work --recipe exl3 --desktop-use qwen harness searxng
   ${BIN_DIR}/local-ai prepare ninfer
   ${BIN_DIR}/local-ai start --recipe ninfer qwen harness
   ${BIN_DIR}/local-ai start --recipe ninfer --desktop-use qwen harness

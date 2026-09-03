@@ -56,23 +56,23 @@ QWEN_TEST_MODEL=qwen3.8-27b-ninfer-nvfp4-252928 ./test-full-context.mjs 245000
 local-ai start --recipe ninfer --desktop-use qwen harness
 local-ai github-login                # one-time isolated company GitHub login
 cd COMPANY_REPO
-local-ai start --recipe exl3 --desktop-use qwen harness-work searxng
+local-ai start --work --recipe exl3 --desktop-use qwen harness searxng
 local-ai recipes                    # compare engines, formats, and context limits
 local-ai dashboard                  # interactive services, logs, and GPU view
 local-ai status
-local-ai logs qwen                  # qwen, harness, harness-work, or searxng
+local-ai logs qwen                  # qwen, harness, or searxng
 local-ai stop qwen               # release VRAM only
 local-ai start qwen              # reload the model only
 local-ai stop                    # all three
 ```
 
-The valid targets are `qwen`, `harness`, `harness-work`, and `searxng`; list one or several in
+The valid targets are `qwen`, `harness`, and `searxng`; list one or several in
 any order. The Qwen recipe values are `sglang` (default), `exl3`, and `ninfer`.
 Run `local-ai recipes` for a compact comparison of their canonical served IDs,
 engines, weight and KV formats, normal/desktop context limits, vision, and
 speculative decoding.
 With no targets, `start` starts the selected Qwen recipe, Harness, and SearXNG.
-It deliberately does not start `harness-work`; request that target explicitly.
+Add `--work` to select the isolated work Harness instead of the personal one.
 Without `--recipe`, `stop qwen` stops every recipe container. Harness runs as a
 transient user-systemd service, and
 `local-ai logs` reads its journal.
@@ -94,7 +94,7 @@ switching recipes; an existing session retains the model it began with.
 `local-ai dashboard` opens a dependency-free terminal dashboard with Overview,
 Qwen, personal/work Harness, SearXNG, and GPU tabs. Use `Tab` or `1`–`6` to switch,
 arrow/Page keys to scroll, `f` to follow logs, `r` to refresh, and `q` to quit.
-The original `status` and targeted `logs [qwen|harness|harness-work|searxng]` commands remain
+The original `status` and targeted `logs [qwen|harness|searxng]` commands remain
 available for scripts and copyable diagnostics.
 
 ## Desktop-use mode
@@ -215,14 +215,14 @@ as its workspace:
 local-ai github-login
 local-ai github-status
 cd /path/to/company/repository
-local-ai start --recipe exl3 --desktop-use qwen harness-work searxng
+local-ai start --work --recipe exl3 --desktop-use qwen harness searxng
 ```
 
 Open `http://127.0.0.1:3081`. The work login uses a separate GitHub CLI config
 directory at `$XDG_CONFIG_HOME/gh-work` (or `~/.config/gh-work`); no token is copied
 into this repository or Harness settings. Organization SSO authorization may
-still be required by the company. `local-ai stop harness-work` stops only this
-UI, while `local-ai logs harness-work` reads its journal.
+still be required by the company. `local-ai stop --work harness` stops only this
+UI, while `local-ai logs --work harness` reads its journal.
 
 The work preset provides Harness's built-in shell, filesystem, repository
 search, background-job, instruction, skill, compaction, ask-user, and todo
