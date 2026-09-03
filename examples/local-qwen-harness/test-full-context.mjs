@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const baseUrl = process.env.QWEN_FULL_URL ?? "http://127.0.0.1:30001";
+const baseUrl = process.env.QWEN_FULL_URL ?? "http://127.0.0.1:30000";
 const model = process.env.QWEN_FULL_MODEL ?? "qwen3.8-27b-full";
 const requestedTokens = Number.parseInt(process.argv[2] ?? "250000", 10);
 

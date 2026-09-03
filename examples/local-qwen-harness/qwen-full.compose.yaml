@@ -12,23 +12,23 @@ services:
     security_opt:
       - label=disable
     ports:
-      - "127.0.0.1:30001:8000"
+      - "127.0.0.1:30000:8000"
     volumes:
       - qwen38-full-hf-cache:/root/.cache/huggingface:Z
       - type: bind
-        source: ${QWEN_FULL_PATCH_DIR:?Run local-ai prepare qwen-full first}/tools/vllm-exl3-prefill-dispatch.py
+        source: ${QWEN_FULL_PATCH_DIR:?Run local-ai prepare exl3 first}/tools/vllm-exl3-prefill-dispatch.py
         target: /opt/venv/lib/python3.12/site-packages/vllm/model_executor/layers/quantization/exl3.py
         read_only: true
       - type: bind
-        source: ${QWEN_FULL_PATCH_DIR:?Run local-ai prepare qwen-full first}/tools/vllm-qwen3_5-embed-quant-config.py
+        source: ${QWEN_FULL_PATCH_DIR:?Run local-ai prepare exl3 first}/tools/vllm-qwen3_5-embed-quant-config.py
         target: /opt/venv/lib/python3.12/site-packages/vllm/model_executor/models/qwen3_5.py
         read_only: true
       - type: bind
-        source: ${QWEN_FULL_PATCH_DIR:?Run local-ai prepare qwen-full first}/tools/vllm-qwen3_5_mtp-embed-quant-config.py
+        source: ${QWEN_FULL_PATCH_DIR:?Run local-ai prepare exl3 first}/tools/vllm-qwen3_5_mtp-embed-quant-config.py
         target: /opt/venv/lib/python3.12/site-packages/vllm/model_executor/models/qwen3_5_mtp.py
         read_only: true
       - type: bind
-        source: ${QWEN_FULL_PATCH_DIR:?Run local-ai prepare qwen-full first}/tools/vllm-mamba-align-scheduler.py
+        source: ${QWEN_FULL_PATCH_DIR:?Run local-ai prepare exl3 first}/tools/vllm-mamba-align-scheduler.py
         target: /opt/venv/lib/python3.12/site-packages/vllm/v1/core/sched/scheduler.py
         read_only: true
     environment:

@@ -2,7 +2,7 @@ name: qwen38-ninfer
 
 services:
   qwen-ninfer:
-    # Built from the pinned NInfer source by `local-ai prepare qwen-ninfer`.
+    # Built from the pinned NInfer source by `local-ai prepare ninfer`.
     image: local/qwen-ninfer:a140e7ae82a1
     container_name: qwen38-ninfer
     restart: "no"
@@ -12,10 +12,10 @@ services:
     security_opt:
       - label=disable
     ports:
-      - "127.0.0.1:30002:8080"
+      - "127.0.0.1:30000:8080"
     volumes:
       - type: bind
-        source: ${QWEN_NINFER_MODEL_FILE:?Run local-ai prepare qwen-ninfer first}
+        source: ${QWEN_NINFER_MODEL_FILE:?Run local-ai prepare ninfer first}
         target: /models/qwen3_8_27b_nvfp4.ninfer
         read_only: true
     command:

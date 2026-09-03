@@ -10,11 +10,11 @@ pinned checkpoint's vision path was verified through SGLang.
 The optional `exl3` recipe adds the model's native 262,144-token window.
 It uses the measured EXL3 K5/K6 context build, FP8 KV, MTP-3, and the BF16
 vision tower through a digest-pinned Gilded Gnosis/vLLM image. It does not
-replace or alter the default 122,880-token SGLang service.
+alter the default 122,880-token SGLang recipe.
 
 A third, experimental `ninfer` recipe exposes 252,928 text tokens using
-NInfer, INT8 KV, and MTP-3. That is 96.5% of the native window. It is isolated
-on port 30002 and does not replace either existing service.
+NInfer, INT8 KV, and MTP-3. That is 96.5% of the native window. Like every
+recipe, it uses the single local model endpoint on port 30000.
 
 ## Restore on a new installation
 
@@ -46,7 +46,7 @@ local-ai start --recipe exl3 qwen harness
 ./test-full-context.mjs          # direct 250K-token retrieval test
 local-ai prepare ninfer          # build pinned NInfer + fetch its 20.02-GiB artifact
 local-ai start --recipe ninfer qwen harness
-QWEN_FULL_URL=http://127.0.0.1:30002 QWEN_FULL_MODEL=qwen3.8-27b-ninfer ./test-full-context.mjs 245000
+QWEN_FULL_MODEL=qwen3.8-27b-ninfer ./test-full-context.mjs 245000
 local-ai status
 local-ai logs
 local-ai stop qwen               # release VRAM only
@@ -81,8 +81,8 @@ local-ai start --recipe exl3 qwen harness
 
 Preparation downloads and verifies four pinned runtime overlays and pulls the
 pinned image; it starts nothing. The first start downloads the pinned 20.7 GB
-model snapshot into a separate Docker volume. The service binds only to
-`http://127.0.0.1:30001/v1` and keeps the normal service at port 30000 intact.
+model snapshot into a separate Docker volume. It serves through the shared
+`http://127.0.0.1:30000/v1` endpoint; only one recipe may run at a time.
 
 The profile is deliberately single-user: 262,144 context, FP8 KV, MTP-3,
 `max-num-seqs=1`, and an 8.4-megapixel vision ceiling. Prefix caching is off
@@ -132,15 +132,15 @@ start it unless all but roughly 1,080 MiB of VRAM is free. Run the direct test
 after the endpoint reports ready:
 
 ```bash
-QWEN_FULL_URL=http://127.0.0.1:30002 \
 QWEN_FULL_MODEL=qwen3.8-27b-ninfer \
   ./test-full-context.mjs 245000
 
 local-ai stop --recipe ninfer qwen
 ```
 
-The service binds only to `http://127.0.0.1:30002/v1`. Source, build products,
-and model data live in the user cache rather than this repository.
+The service uses the shared `http://127.0.0.1:30000/v1` endpoint. Source,
+build products, and model data live in the user cache rather than this
+repository.
 
 The SearXNG browser interface is available at
 `http://127.0.0.1:8888`.

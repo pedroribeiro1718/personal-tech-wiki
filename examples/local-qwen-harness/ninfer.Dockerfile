@@ -1,4 +1,4 @@
-# NInfer source is supplied as the build context by `local-ai prepare qwen-ninfer`.
+# NInfer source is supplied as the build context by `local-ai prepare ninfer`.
 # CUDA bases are pinned to their 2026-09-03 Linux/amd64 manifests.
 FROM nvidia/cuda:13.1.2-devel-ubuntu24.04@sha256:952e42d23230610a2714c8484f38e9c934ed68e6f9c9c7fac62dcd5f98858a6e AS build
 

@@ -13,11 +13,12 @@ This is the tested local-agent setup:
 
 There is also an optional native-262K profile. It uses a measured EXL3 K5/K6
 context build with FP8 KV, MTP-3, vision, reasoning, and tool parsing. It is a
-separate target and does not change the working SGLang default.
+separate recipe and does not change the working SGLang default.
 
 A third, experimental NInfer profile trades 3.5% of the native window for a
 252,928-token text route with INT8 KV and MTP-3. It is also separate and keeps
-the first two recipes intact.
+the first two recipes intact. All recipes use `http://127.0.0.1:30000/v1` and
+only one may run at a time.
 
 The complete, secret-free files are in
 [`examples/local-qwen-harness/`](../../examples/local-qwen-harness/).
@@ -108,7 +109,7 @@ local-ai stop --recipe exl3 qwen # release VRAM
 ```
 
 In Harness, select `qwen3.8-27b-full`. It is served at
-`http://127.0.0.1:30001/v1` with a 262,144-token limit, FP8 KV, MTP-3,
+`http://127.0.0.1:30000/v1` with a 262,144-token limit, FP8 KV, MTP-3,
 single-request scheduling, and image input. Its dedicated cache volume is
 `qwen38-full-hf-cache`.
 
@@ -130,7 +131,6 @@ local-ai prepare ninfer             # pinned source build + verified 20.02-GiB a
 local-ai stop qwen
 local-ai start --recipe ninfer qwen harness
 
-QWEN_FULL_URL=http://127.0.0.1:30002 \
 QWEN_FULL_MODEL=qwen3.8-27b-ninfer \
   ./test-full-context.mjs 245000
 
@@ -138,7 +138,7 @@ local-ai stop --recipe ninfer qwen # release VRAM
 ```
 
 Select `qwen3.8-27b-ninfer` in Harness. The OpenAI-compatible endpoint is
-`http://127.0.0.1:30002/v1`. The profile uses 252,928 context, INT8 KV,
+`http://127.0.0.1:30000/v1`. The profile uses 252,928 context, INT8 KV,
 MTP-3, two-request scheduling, and prefix reuse. It supports reasoning and
 tool calls; Harness remains responsible for executing the SearXNG tools.
 
