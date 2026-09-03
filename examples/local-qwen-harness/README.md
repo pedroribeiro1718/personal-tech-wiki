@@ -3,8 +3,9 @@
 This directory is the reproducible source of truth for the working RTX 5090
 setup. It contains the pinned Qwen/SGLang runtime, private SearXNG service,
 read-only MCP search adapter, Harness model/profile settings, and manual
-management helper. The custom model route explicitly declares text and image
-input; the pinned checkpoint's vision path was verified through SGLang.
+management helper. Harness uses a pinned local Markdown renderer for Mermaid
+diagrams. The custom model route explicitly declares text and image input; the
+pinned checkpoint's vision path was verified through SGLang.
 
 ## Restore on a new installation
 
@@ -63,6 +64,11 @@ tools:
 The page tool blocks credentials, private/local networks, nonstandard ports,
 binary content, redirect abuse, oversized bodies, and slow responses. DNS is
 validated and pinned for each request, and HTML is never executed.
+
+Harness renders fenced `mermaid` blocks through
+`dsh-better-markdown@0.1.2`. Mermaid is bundled with the plugin, so diagram
+rendering does not depend on a CDN. After restoring or changing the plugin,
+reload the Harness page once.
 
 See `qwen.compose.yaml` for every inference parameter and `VERSIONS.md` for
 the captured image/model revisions. The model cache itself is large and is

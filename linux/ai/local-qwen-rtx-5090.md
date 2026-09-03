@@ -7,6 +7,7 @@ This is the tested local-agent setup:
 - DeepSeek Harness as the browser UI and agent loop
 - private SearXNG at `http://127.0.0.1:8888`
 - a read-only MCP adapter for web search and public-page snapshots
+- offline Mermaid rendering through pinned `dsh-better-markdown@0.1.2`
 - working text, image, and function-tool input
 - no DeepSeek API/search dependency and no automatic startup
 
@@ -107,6 +108,11 @@ tool captures size-limited plain text from important results before they are
 cited. It rejects credentials, local/private networks, nonstandard ports,
 binary content, redirect abuse, oversized bodies, and slow responses; it pins
 validated DNS for each request and never executes HTML.
+
+Harness renders fenced `mermaid` blocks through the pinned
+`dsh-better-markdown` plugin. Its Mermaid runtime is bundled locally rather
+than fetched from a CDN. If the plugin was just installed or restored, reload
+the Harness page once.
 
 ## Security and backup
 
