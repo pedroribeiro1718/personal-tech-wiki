@@ -10,6 +10,7 @@ This is the tested local-agent setup:
 - offline Mermaid rendering through pinned `dsh-better-markdown@0.1.2`
 - working text, image, and function-tool input
 - no DeepSeek API/search dependency and no automatic startup
+- an optional isolated work Harness with safe public search and read-only GitHub
 
 There is also an optional native-262K profile. It uses a measured EXL3 K5/K6
 context build with FP8 KV, MTP-3, vision, reasoning, and tool parsing. It is a
@@ -30,7 +31,7 @@ Install and verify:
 1. A current NVIDIA driver (`nvidia-smi` must show the GPU).
 2. Docker Engine and Docker Compose v2.
 3. NVIDIA Container Toolkit configured for Docker.
-4. Git, Node.js 20 or newer, pnpm, curl, sed, OpenSSL, and `sha256sum`.
+4. Git, GitHub CLI, Node.js 20 or newer, pnpm, curl, sed, OpenSSL, and `sha256sum`.
 5. A running systemd user manager (`systemctl --user`).
 
 Then:
@@ -41,7 +42,8 @@ cd personal-tech-wiki/examples/local-qwen-harness
 ./bootstrap.sh
 ```
 
-The bootstrap script restores the Harness profile under `~/.dsh`, installs
+The bootstrap script restores the personal and work Harness profiles under
+`~/.dsh` and `~/.dsh-work`, installs
 the JavaScript dependencies, pulls the pinned container images, creates the
 Hugging Face cache volume, and installs `~/.local/bin/local-ai`. It starts
 nothing and enables no boot service. If pnpm asks which trusted Harness
@@ -100,14 +102,41 @@ local-ai start qwen
 local-ai stop
 ```
 
-Harness runs as a transient user-systemd service so its complete process tree
-can be stopped reliably. It is created only by the manual command and is not
-enabled at boot. Valid targets are `qwen`, `harness`, and `searxng`; Qwen's
-recipe values are `sglang` (default), `exl3`, and `ninfer`. Omitting targets
-starts the selected recipe plus Harness and SearXNG. `local-ai stop qwen`
-stops every recipe unless a specific `--recipe` is supplied. Only one recipe
-can use the single GPU at a time. Harness neither filters its static catalog by
-the loaded model nor reliably derives custom limits from `/v1/models`. The
+For a company repository, authenticate and explicitly start the isolated work
+Harness from that checkout:
+
+```bash
+local-ai github-login
+local-ai github-status
+cd /path/to/company/repository
+local-ai start --recipe exl3 qwen harness-work searxng
+# Open http://127.0.0.1:3081
+```
+
+The work instance uses `~/.dsh-work`, keeps the personal Harness on port 3080
+untouched, and stores its GitHub CLI login separately under
+`$XDG_CONFIG_HOME/gh-work` (or `~/.config/gh-work`). It uses the
+[official GitHub MCP server](https://github.com/github/github-mcp-server) with
+`context,repos,issues,pull_requests` only, forced read-only and lockdown modes.
+Company SSO may require separate authorization. No credential is stored in the
+wiki.
+
+The work profile still has general SearXNG web search and restricted public-page
+snapshots. Never place proprietary code, credentials, internal URLs, company
+issue text, or logs in a public search query; use local and GitHub tools for
+company material. Stop or inspect it with `local-ai stop harness-work` and
+`local-ai logs harness-work`.
+
+Each Harness runs as a transient user-systemd service so its complete process
+tree can be stopped reliably. It is created only by the manual command and is
+not enabled at boot. Valid targets are `qwen`, `harness`, `harness-work`, and
+`searxng`; Qwen's recipe values are `sglang` (default), `exl3`, and `ninfer`.
+Omitting targets starts the selected recipe plus personal Harness and SearXNG.
+The default `all` does not start the work Harness; it must be explicit.
+`local-ai stop qwen` stops every recipe unless a specific `--recipe` is
+supplied. Only one recipe can use the single GPU at a time. Harness neither
+filters its static catalog by the loaded model nor reliably derives custom
+limits from `/v1/models`. The
 committed template retains all three definitions for recovery; every successful
 `local-ai start ... qwen` replaces the live catalog and default with only the
 active recipe and its actual normal/desktop capacity. `stop qwen` retains that
@@ -117,14 +146,14 @@ retain their original model selection.
 Use `local-ai recipes` to print each canonical served ID, engine, weight/KV
 formats, context limits, vision support, and speculative-decoding method.
 
-`local-ai dashboard` provides Overview, Qwen log, Harness log, SearXNG log, and
+`local-ai dashboard` provides Overview, Qwen log, both Harness logs, SearXNG log, and
 GPU tabs using Python's standard-library terminal UI. Switch with `Tab` or
-`1`–`5`; scroll with arrow/Page keys; use `f` to follow, `r` to refresh, and `q`
-to quit. Keep `status` and `logs [qwen|harness|searxng]` for scripts and direct
-diagnostics.
+`1`–`6`; scroll with arrow/Page keys; use `f` to follow, `r` to refresh, and `q`
+to quit. Keep `status` and `logs [qwen|harness|harness-work|searxng]` for
+scripts and direct diagnostics.
 
-The direct GPU-unload command is `docker stop qwen38`. The next
-`docker start qwen38` reloads the cached model.
+The supported GPU-unload command is `local-ai stop qwen`; start the desired
+recipe again to reload the cached model.
 
 ## Desktop-use mode
 

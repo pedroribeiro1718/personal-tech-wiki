@@ -24,9 +24,15 @@ QWEN_NINFER_MODEL_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/local-qwen-harness/ninf
 QWEN_NINFER_MODEL_FILE="${QWEN_NINFER_MODEL_DIR}/qwen3_8_27b_nvfp4.ninfer"
 QWEN_NINFER_MODEL_URL="https://huggingface.co/neroued/Qwen3.8-27B-nvfp4-NInfer/resolve/${QWEN_NINFER_MODEL_REVISION}/qwen3_8_27b_nvfp4.ninfer?download=true"
 HARNESS_URL="http://127.0.0.1:3080"
+WORK_HARNESS_URL="http://127.0.0.1:3081"
 DSH_PACKAGE="@deepseek-ai/dsh@0.1.1-rc.2"
 HARNESS_UNIT="local-qwen-harness.service"
-HARNESS_SETTINGS="${DSH_DIR:-${HOME}/.dsh}/settings.yaml"
+WORK_HARNESS_UNIT="local-qwen-harness-work.service"
+DSH_DIR="${DSH_DIR:-${HOME}/.dsh}"
+WORK_DSH_DIR="${WORK_DSH_DIR:-${HOME}/.dsh-work}"
+HARNESS_SETTINGS="${DSH_DIR}/settings.yaml"
+WORK_HARNESS_SETTINGS="${WORK_DSH_DIR}/settings.yaml"
+WORK_GH_CONFIG_DIR="${GITHUB_WORK_GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME}/.config}/gh-work}"
 
 start_qwen() {
   if container_running "${QWEN_FULL_CONTAINER}" || container_running "${QWEN_NINFER_CONTAINER}"; then
@@ -354,84 +360,119 @@ prepare_qwen_sglang() {
   printf 'sglang recipe is prepared. Nothing was started.\n'
 }
 
-start_harness() {
-  local pnpm_bin
+start_harness_service() {
+  local label="$1" url="$2" unit="$3" dsh_home="$4" workspace="$5"
+  local pnpm_bin port="${url##*:}"
 
-  if systemctl --user is-active --quiet "${HARNESS_UNIT}"; then
-    printf 'Harness is already running: %s\n' "${HARNESS_URL}"
+  if systemctl --user is-active --quiet "${unit}"; then
+    printf '%s is already running: %s\n' "${label}" "${url}"
     return 0
   fi
 
-  if curl -fsS --max-time 2 "${HARNESS_URL}" >/dev/null 2>&1; then
-    printf 'Port 3080 already has an unmanaged Harness listener; refusing to start a duplicate.\n' >&2
+  if curl -fsS --max-time 2 "${url}" >/dev/null 2>&1; then
+    printf 'Port %s already has an unmanaged listener; refusing to start a duplicate.\n' "${port}" >&2
     return 1
   fi
 
   pnpm_bin="$(command -v pnpm)"
-  systemctl --user reset-failed "${HARNESS_UNIT}" >/dev/null 2>&1 || true
-  printf 'Starting Harness in the background: %s\n' "${HARNESS_URL}"
+  sync_harness_from_api || true
+  systemctl --user reset-failed "${unit}" >/dev/null 2>&1 || true
+  printf 'Starting %s in the background: %s\n' "${label}" "${url}"
   systemd-run --user --quiet --collect \
-    --unit="${HARNESS_UNIT}" \
+    --unit="${unit}" \
     --property=Type=exec \
     --property=KillMode=control-group \
     --property=TimeoutStopSec=15 \
-    --working-directory="${HOME}" \
+    --working-directory="${workspace}" \
+    --setenv="DSH_HOME=${dsh_home}" \
     --setenv="QWEN_LOCAL_API_KEY=${QWEN_LOCAL_API_KEY:-local-no-key}" \
-    "${pnpm_bin}" dlx "${DSH_PACKAGE}" web --no-open
+    "${pnpm_bin}" dlx "${DSH_PACKAGE}" web --port "${port}" --no-open
 
   for _ in $(seq 1 30); do
-    if ! systemctl --user is-active --quiet "${HARNESS_UNIT}"; then
-      printf 'Harness exited during startup. Recent log output:\n' >&2
-      journalctl --user -u "${HARNESS_UNIT}" -n 40 --no-pager >&2 || true
+    if ! systemctl --user is-active --quiet "${unit}"; then
+      printf '%s exited during startup. Recent log output:\n' "${label}" >&2
+      journalctl --user -u "${unit}" -n 40 --no-pager >&2 || true
       return 1
     fi
-    if curl -fsS --max-time 2 "${HARNESS_URL}" >/dev/null 2>&1; then
-      printf 'Harness is ready. View logs with: local-ai logs\n'
+    if curl -fsS --max-time 2 "${url}" >/dev/null 2>&1; then
+      printf '%s is ready.\n' "${label}"
       return 0
     fi
     sleep 1
   done
 
-  printf 'Harness did not become ready within 30 seconds. Run: local-ai logs\n' >&2
+  printf '%s did not become ready within 30 seconds.\n' "${label}" >&2
   return 1
+}
+
+start_harness() {
+  start_harness_service "Harness" "${HARNESS_URL}" "${HARNESS_UNIT}" "${DSH_DIR}" "${HOME}"
+}
+
+start_work_harness() {
+  start_harness_service "Work Harness" "${WORK_HARNESS_URL}" "${WORK_HARNESS_UNIT}" \
+    "${WORK_DSH_DIR}" "${LOCAL_AI_WORKSPACE:-${PWD}}"
 }
 
 sync_harness_model() {
   local recipe="$1"
-  local active_context
+  local active_context="${2:-}"
   local active_id
   local active_name
   local active_vision
-  local temp_settings
+  local settings_file
 
   case "${recipe}" in
     sglang)
       active_id='qwen3.8-27b-sglang-nvfp4-122880'
       active_name='Qwen 3.8 27B · SGLang · NVFP4 · 122,880'
-      active_context=122880
+      active_context="${active_context:-122880}"
       active_vision=1
       ;;
     exl3)
       active_id='qwen3.8-27b-vllm-exl3-k5k6-262144'
       active_name='Qwen 3.8 27B · vLLM · EXL3 K5/K6 · 262,144'
-      active_context=$(( DESKTOP_USE ? 155648 : 262144 ))
+      active_context="${active_context:-$(( DESKTOP_USE ? 155648 : 262144 ))}"
       active_vision=1
       ;;
     ninfer)
       active_id='qwen3.8-27b-ninfer-nvfp4-252928'
       active_name='Qwen 3.8 27B · NInfer · NVFP4 · 252,928'
-      active_context=$(( DESKTOP_USE ? 172032 : 252928 ))
+      active_context="${active_context:-$(( DESKTOP_USE ? 172032 : 252928 ))}"
       active_vision=0
       ;;
   esac
 
-  if [[ ! -f "${HARNESS_SETTINGS}" ]]; then
-    printf 'Harness settings are missing: %s (run ./bootstrap.sh)\n' \
-      "${HARNESS_SETTINGS}" >&2
-    return 1
-  fi
+  for settings_file in "${HARNESS_SETTINGS}" "${WORK_HARNESS_SETTINGS}"; do
+    [[ -f "${settings_file}" ]] || continue
+    sync_harness_settings "${settings_file}" "${active_id}" "${active_name}" \
+      "${active_context}" "${active_vision}"
+  done
+  printf 'Harness catalogs synchronized for %s only (%s tokens).\n' \
+    "${recipe}" "${active_context}"
+}
 
-  temp_settings="$(mktemp "${HARNESS_SETTINGS}.local-ai.XXXXXX")"
+sync_harness_from_api() {
+  local model_id context recipe
+  read -r model_id context < <(
+    curl -fsS --max-time 2 "${QWEN_URL}" 2>/dev/null | python3 -c \
+      'import json,sys; m=json.load(sys.stdin)["data"][0]; print(m["id"], m.get("max_model_len", ""))' 2>/dev/null
+  ) || return 0
+  case "${model_id}" in
+    *-sglang-*) recipe=sglang ;;
+    *-vllm-exl3-*) recipe=exl3 ;;
+    *-ninfer-*) recipe=ninfer ;;
+    *) return 0 ;;
+  esac
+  [[ "${context}" =~ ^[0-9]+$ ]] || context=""
+  sync_harness_model "${recipe}" "${context}"
+}
+
+sync_harness_settings() {
+  local settings_file="$1" active_id="$2" active_name="$3" active_context="$4" active_vision="$5"
+  local temp_settings
+
+  temp_settings="$(mktemp "${settings_file}.local-ai.XXXXXX")"
   if ! awk \
     -v active_id="${active_id}" \
     -v active_name="${active_name}" \
@@ -477,40 +518,42 @@ sync_harness_model() {
       END {
         if (models_done != 1 || default_done != 1) exit 42
       }
-    ' "${HARNESS_SETTINGS}" >"${temp_settings}"; then
+    ' "${settings_file}" >"${temp_settings}"; then
     rm -f -- "${temp_settings}"
     printf 'Could not safely update the Harness model catalog in %s; run ./bootstrap.sh.\n' \
-      "${HARNESS_SETTINGS}" >&2
+      "${settings_file}" >&2
     return 1
   fi
-  chmod --reference="${HARNESS_SETTINGS}" "${temp_settings}" 2>/dev/null || chmod 0600 "${temp_settings}"
-  mv -- "${temp_settings}" "${HARNESS_SETTINGS}"
-  printf 'Harness catalog synchronized for %s only (%s tokens).\n' \
-    "${recipe}" "${active_context}"
+  chmod --reference="${settings_file}" "${temp_settings}" 2>/dev/null || chmod 0600 "${temp_settings}"
+  mv -- "${temp_settings}" "${settings_file}"
 }
 
-stop_harness() {
-  if ! systemctl --user is-active --quiet "${HARNESS_UNIT}"; then
-    if curl -fsS --max-time 2 "${HARNESS_URL}" >/dev/null 2>&1; then
-      printf 'Harness is running but is not managed by this helper; leaving it untouched.\n' >&2
+stop_harness_service() {
+  local label="$1" url="$2" unit="$3"
+  if ! systemctl --user is-active --quiet "${unit}"; then
+    if curl -fsS --max-time 2 "${url}" >/dev/null 2>&1; then
+      printf '%s is running but is not managed by this helper; leaving it untouched.\n' "${label}" >&2
       return 1
     fi
-    printf 'Harness is already stopped.\n'
+    printf '%s is already stopped.\n' "${label}"
     return 0
   fi
 
-  systemctl --user stop "${HARNESS_UNIT}"
-  printf 'Harness stopped.\n'
+  systemctl --user stop "${unit}"
+  printf '%s stopped.\n' "${label}"
 }
+
+stop_harness() { stop_harness_service "Harness" "${HARNESS_URL}" "${HARNESS_UNIT}"; }
+stop_work_harness() { stop_harness_service "Work Harness" "${WORK_HARNESS_URL}" "${WORK_HARNESS_UNIT}"; }
 
 validate_targets() {
   local target_name
 
   for target_name in "$@"; do
     case "${target_name}" in
-      qwen|harness|searxng|all) ;;
+      qwen|harness|harness-work|searxng|all) ;;
       *)
-        printf 'Unknown target: %s (expected qwen, harness, searxng, or all)\n' "${target_name}" >&2
+        printf 'Unknown target: %s (expected qwen, harness, harness-work, searxng, or all)\n' "${target_name}" >&2
         return 2
         ;;
     esac
@@ -526,6 +569,15 @@ target_requested() {
     if [[ "${target_name}" == "${requested_target}" || "${target_name}" == "all" ]]; then
       return 0
     fi
+  done
+  return 1
+}
+
+target_explicit() {
+  local requested_target="$1" target_name
+  shift
+  for target_name in "$@"; do
+    [[ "${target_name}" == "${requested_target}" ]] && return 0
   done
   return 1
 }
@@ -617,6 +669,9 @@ start_targets() {
   if target_requested harness "$@"; then
     start_harness
   fi
+  if target_explicit harness-work "$@"; then
+    start_work_harness
+  fi
 }
 
 stop_targets() {
@@ -628,6 +683,9 @@ stop_targets() {
 
   if target_requested harness "$@"; then
     stop_harness || stop_result=$?
+  fi
+  if target_explicit harness-work "$@"; then
+    stop_work_harness || stop_result=$?
   fi
   if target_requested qwen "$@"; then
     case "${recipe}" in
@@ -666,6 +724,13 @@ status() {
   else
     printf 'Harness: stopped\n\n'
   fi
+  if systemctl --user is-active --quiet "${WORK_HARNESS_UNIT}"; then
+    printf 'Work Harness: running at %s\n\n' "${WORK_HARNESS_URL}"
+  elif curl -fsS --max-time 2 "${WORK_HARNESS_URL}" >/dev/null 2>&1; then
+    printf 'Work Harness: responding at %s, but not managed by this helper\n\n' "${WORK_HARNESS_URL}"
+  else
+    printf 'Work Harness: stopped\n\n'
+  fi
   docker ps -a --filter "name=^/${QWEN_CONTAINER}$" --filter "name=^/${QWEN_FULL_CONTAINER}$" \
     --filter "name=^/${QWEN_NINFER_CONTAINER}$" \
     --filter "name=^/qwen-searxng$" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
@@ -681,6 +746,9 @@ logs() {
     harness)
       journalctl --user -u "${HARNESS_UNIT}" -n 100 --no-pager
       ;;
+    harness-work)
+      journalctl --user -u "${WORK_HARNESS_UNIT}" -n 100 --no-pager
+      ;;
     qwen)
       for container_name in "${QWEN_CONTAINER}" "${QWEN_FULL_CONTAINER}" "${QWEN_NINFER_CONTAINER}"; do
         if container_running "${container_name}"; then
@@ -695,7 +763,7 @@ logs() {
       docker logs --tail 100 qwen-searxng
       ;;
     *)
-      printf 'Unknown log target: %s (expected qwen, harness, or searxng)\n' "${target}" >&2
+      printf 'Unknown log target: %s (expected qwen, harness, harness-work, or searxng)\n' "${target}" >&2
       return 2
       ;;
   esac
@@ -725,6 +793,16 @@ Harness lists only the recipe most recently started with the qwen target.
 EOF
 }
 
+github_login() {
+  command -v gh >/dev/null 2>&1 || { printf 'GitHub CLI (gh) is required.\n' >&2; return 1; }
+  GH_CONFIG_DIR="${WORK_GH_CONFIG_DIR}" gh auth login -h github.com --web --scopes repo,read:org
+}
+
+github_status() {
+  command -v gh >/dev/null 2>&1 || { printf 'GitHub CLI (gh) is required.\n' >&2; return 1; }
+  GH_CONFIG_DIR="${WORK_GH_CONFIG_DIR}" gh auth status -h github.com
+}
+
 usage() {
   cat <<'EOF'
 local-ai - manage the local Qwen stack
@@ -740,9 +818,11 @@ COMMANDS
   stop              Stop one or more targets (defaults to all)
   prepare           Download/build one recipe without starting it
   recipes           List recipes and their main characteristics
+  github-login      Sign the isolated work profile into GitHub
+  github-status     Check the isolated work-profile GitHub login
   dashboard         Open the interactive status, logs, and GPU dashboard
   status            Show Harness, container, and GPU-process status
-  logs [TARGET]     Show 100 log lines for qwen, harness, or searxng
+  logs [TARGET]     Show 100 log lines for qwen, harness, harness-work, or searxng
   help              Show this help
 
 OPTIONS
@@ -753,16 +833,19 @@ OPTIONS
 TARGETS
   qwen              Model server at http://127.0.0.1:30000/v1
   harness           DeepSeek Harness at http://127.0.0.1:3080
+  harness-work      Isolated work Harness at http://127.0.0.1:3081
   searxng           Private search service at http://127.0.0.1:8888
-  all               All three targets (the default when none are supplied)
+  all               Qwen, personal Harness, and SearXNG (the default)
 
 EXAMPLES
   local-ai start qwen harness
   local-ai start --recipe exl3 qwen harness
+  cd COMPANY_REPO && local-ai start --recipe exl3 qwen harness-work searxng
   local-ai start --recipe ninfer --desktop-use qwen harness searxng
   local-ai stop qwen
   local-ai prepare ninfer
   local-ai recipes
+  local-ai github-login
   local-ai dashboard
 EOF
 }
@@ -800,6 +883,8 @@ case "${1:-}" in
     exec python3 "${STACK_DIR}/dashboard.py"
     ;;
   recipes) recipes ;;
+  github-login) github_login ;;
+  github-status) github_status ;;
   help|-h|--help) usage ;;
   "") usage; exit 2 ;;
   *)

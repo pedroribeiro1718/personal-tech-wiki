@@ -5,9 +5,12 @@ STACK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 DSH_DIR="${DSH_DIR:-${HOME}/.dsh}"
 PROFILE_DIR="${DSH_DIR}/profiles/web"
 PRESET_DIR="${DSH_DIR}/.agent-presets/local-standard"
+WORK_DSH_DIR="${WORK_DSH_DIR:-${HOME}/.dsh-work}"
+WORK_PROFILE_DIR="${WORK_DSH_DIR}/profiles/web"
+WORK_PRESET_DIR="${WORK_DSH_DIR}/.agent-presets/local-code-work"
 BIN_DIR="${HOME}/.local/bin"
 
-for command_name in docker git node pnpm curl sed awk openssl sha256sum systemctl systemd-run journalctl; do
+for command_name in docker git gh node pnpm python3 curl sed awk openssl sha256sum systemctl systemd-run journalctl; do
   if ! command -v "${command_name}" >/dev/null 2>&1; then
     printf 'Missing prerequisite: %s\n' "${command_name}" >&2
     exit 1
@@ -24,7 +27,8 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-mkdir -p "${PROFILE_DIR}" "${PRESET_DIR}" "${BIN_DIR}"
+install -d -m 0700 "${DSH_DIR}" "${WORK_DSH_DIR}"
+mkdir -p "${PROFILE_DIR}" "${PRESET_DIR}" "${WORK_PROFILE_DIR}" "${WORK_PRESET_DIR}" "${BIN_DIR}"
 
 backup_if_changed() {
   local source_file="$1"
@@ -42,11 +46,18 @@ fi
 
 settings_source="${STACK_DIR}/bootstrap/harness/settings.yaml"
 package_source="${STACK_DIR}/bootstrap/harness/package.json"
+workspace_source="${STACK_DIR}/bootstrap/harness/pnpm-workspace.yaml"
 patch_template="${STACK_DIR}/bootstrap/harness/cordis.patch.yml.in"
 preset_source="${STACK_DIR}/bootstrap/harness/agent-presets/local-standard/agent.cordis.yml"
 preset_metadata_source="${STACK_DIR}/bootstrap/harness/agent-presets/local-standard/preset.yml"
 rendered_patch="$(mktemp)"
-trap 'rm -f "${rendered_patch}"' EXIT
+work_settings_source="${STACK_DIR}/bootstrap/harness-work/settings.yaml"
+work_package_source="${STACK_DIR}/bootstrap/harness-work/package.json"
+work_patch_template="${STACK_DIR}/bootstrap/harness-work/cordis.patch.yml.in"
+work_preset_source="${STACK_DIR}/bootstrap/harness-work/agent-presets/local-code-work/agent.cordis.yml"
+work_preset_metadata_source="${STACK_DIR}/bootstrap/harness-work/agent-presets/local-code-work/preset.yml"
+rendered_work_patch="$(mktemp)"
+trap 'rm -f "${rendered_patch}" "${rendered_work_patch}"' EXIT
 
 escaped_stack_dir="$(printf '%s' "${STACK_DIR}" | sed 's/[&|\\]/\\&/g')"
 node_bin="$(command -v node)"
@@ -55,24 +66,45 @@ sed \
   -e "s|__STACK_DIR__|${escaped_stack_dir}|g" \
   -e "s|__NODE_BIN__|${escaped_node_bin}|g" \
   "${patch_template}" >"${rendered_patch}"
+sed \
+  -e "s|__STACK_DIR__|${escaped_stack_dir}|g" \
+  -e "s|__NODE_BIN__|${escaped_node_bin}|g" \
+  "${work_patch_template}" >"${rendered_work_patch}"
 
 backup_if_changed "${settings_source}" "${DSH_DIR}/settings.yaml"
 backup_if_changed "${package_source}" "${PROFILE_DIR}/package.json"
+backup_if_changed "${workspace_source}" "${PROFILE_DIR}/pnpm-workspace.yaml"
 backup_if_changed "${rendered_patch}" "${PROFILE_DIR}/cordis.patch.yml"
 backup_if_changed "${preset_source}" "${PRESET_DIR}/agent.cordis.yml"
 backup_if_changed "${preset_metadata_source}" "${PRESET_DIR}/preset.yml"
 install -m 0644 "${settings_source}" "${DSH_DIR}/settings.yaml"
 install -m 0644 "${package_source}" "${PROFILE_DIR}/package.json"
+install -m 0644 "${workspace_source}" "${PROFILE_DIR}/pnpm-workspace.yaml"
 install -m 0644 "${rendered_patch}" "${PROFILE_DIR}/cordis.patch.yml"
 install -m 0644 "${preset_source}" "${PRESET_DIR}/agent.cordis.yml"
 install -m 0644 "${preset_metadata_source}" "${PRESET_DIR}/preset.yml"
 
+backup_if_changed "${work_settings_source}" "${WORK_DSH_DIR}/settings.yaml"
+backup_if_changed "${work_package_source}" "${WORK_PROFILE_DIR}/package.json"
+backup_if_changed "${workspace_source}" "${WORK_PROFILE_DIR}/pnpm-workspace.yaml"
+backup_if_changed "${rendered_work_patch}" "${WORK_PROFILE_DIR}/cordis.patch.yml"
+backup_if_changed "${work_preset_source}" "${WORK_PRESET_DIR}/agent.cordis.yml"
+backup_if_changed "${work_preset_metadata_source}" "${WORK_PRESET_DIR}/preset.yml"
+install -m 0644 "${work_settings_source}" "${WORK_DSH_DIR}/settings.yaml"
+install -m 0644 "${work_package_source}" "${WORK_PROFILE_DIR}/package.json"
+install -m 0644 "${workspace_source}" "${WORK_PROFILE_DIR}/pnpm-workspace.yaml"
+install -m 0644 "${rendered_work_patch}" "${WORK_PROFILE_DIR}/cordis.patch.yml"
+install -m 0644 "${work_preset_source}" "${WORK_PRESET_DIR}/agent.cordis.yml"
+install -m 0644 "${work_preset_metadata_source}" "${WORK_PRESET_DIR}/preset.yml"
+
 pnpm --dir "${STACK_DIR}/mcp" install --frozen-lockfile
 pnpm --dir "${PROFILE_DIR}" install
+pnpm --dir "${WORK_PROFILE_DIR}" install
 
 docker volume inspect qwen38-hf-cache >/dev/null 2>&1 || docker volume create qwen38-hf-cache >/dev/null
 docker compose -f "${STACK_DIR}/qwen-sglang-nvfp4-122880.compose.yaml" pull
 docker compose -f "${STACK_DIR}/compose.yaml" pull
+docker pull "ghcr.io/github/github-mcp-server:v1.11.0@sha256:48b071b92a297eb9b8ddb8dd87ccb4c75dbca6b0867eff034de4148722e0d164"
 
 ln -sfn "${STACK_DIR}/local-ai" "${BIN_DIR}/local-ai"
 
@@ -84,6 +116,7 @@ Manual commands:
   ${BIN_DIR}/local-ai start
   ${BIN_DIR}/local-ai prepare exl3
   ${BIN_DIR}/local-ai start --recipe exl3 qwen harness
+  cd COMPANY_REPO && ${BIN_DIR}/local-ai start --recipe exl3 qwen harness-work searxng
   ${BIN_DIR}/local-ai prepare ninfer
   ${BIN_DIR}/local-ai start --recipe ninfer qwen harness
   ${BIN_DIR}/local-ai start --recipe ninfer --desktop-use qwen harness

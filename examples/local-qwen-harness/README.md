@@ -7,6 +7,11 @@ management helper. Harness uses a pinned local Markdown renderer for Mermaid
 diagrams. The custom model route explicitly declares text and image input; the
 pinned checkpoint's vision path was verified through SGLang.
 
+An isolated company-work Harness is also available. It uses its own
+`~/.dsh-work` state, a lean repository-assistant preset, the same general
+SearXNG search/page-snapshot tools, and GitHub's official MCP server in
+read-only and lockdown modes. The normal Harness remains unchanged.
+
 The optional `exl3` recipe adds the model's native 262,144-token window.
 It uses the measured EXL3 K5/K6 context build, FP8 KV, MTP-3, and the BF16
 vision tower through a digest-pinned Gilded Gnosis/vLLM image. It does not
@@ -22,7 +27,7 @@ Prerequisites:
 
 - NVIDIA driver working in `nvidia-smi`
 - Docker Engine, Docker Compose v2, and NVIDIA Container Toolkit
-- Git, Node.js, pnpm, curl, sed, OpenSSL, and `sha256sum`
+- Git, GitHub CLI, Node.js, pnpm, curl, sed, OpenSSL, and `sha256sum`
 - a running systemd user manager (`systemctl --user`)
 
 From this directory, run:
@@ -31,8 +36,9 @@ From this directory, run:
 ./bootstrap.sh
 ```
 
-This installs dependencies, restores the Harness files under `~/.dsh`, pulls
-the pinned images, creates the model-cache volume, and installs
+This installs dependencies, restores the personal and isolated-work Harness
+files under `~/.dsh` and `~/.dsh-work`, pulls the pinned images, creates the
+model-cache volume, and installs
 `~/.local/bin/local-ai`. It does **not** start anything or enable autostart.
 Existing Harness files that differ are retained as `*.before-local-ai`.
 
@@ -48,21 +54,25 @@ local-ai prepare ninfer          # build pinned NInfer + fetch its 20.02-GiB art
 local-ai start --recipe ninfer qwen harness
 QWEN_TEST_MODEL=qwen3.8-27b-ninfer-nvfp4-252928 ./test-full-context.mjs 245000
 local-ai start --recipe ninfer --desktop-use qwen harness
+local-ai github-login                # one-time isolated company GitHub login
+cd COMPANY_REPO
+local-ai start --recipe exl3 qwen harness-work searxng
 local-ai recipes                    # compare engines, formats, and context limits
 local-ai dashboard                  # interactive services, logs, and GPU view
 local-ai status
-local-ai logs qwen                  # qwen, harness (default), or searxng
+local-ai logs qwen                  # qwen, harness, harness-work, or searxng
 local-ai stop qwen               # release VRAM only
 local-ai start qwen              # reload the model only
 local-ai stop                    # all three
 ```
 
-The valid targets are `qwen`, `harness`, and `searxng`; list one or several in
+The valid targets are `qwen`, `harness`, `harness-work`, and `searxng`; list one or several in
 any order. The Qwen recipe values are `sglang` (default), `exl3`, and `ninfer`.
 Run `local-ai recipes` for a compact comparison of their canonical served IDs,
 engines, weight and KV formats, normal/desktop context limits, vision, and
 speculative decoding.
 With no targets, `start` starts the selected Qwen recipe, Harness, and SearXNG.
+It deliberately does not start `harness-work`; request that target explicitly.
 Without `--recipe`, `stop qwen` stops every recipe container. Harness runs as a
 transient user-systemd service, and
 `local-ai logs` reads its journal.
@@ -82,9 +92,9 @@ a default even while the endpoint is offline. Start a new Harness session after
 switching recipes; an existing session retains the model it began with.
 
 `local-ai dashboard` opens a dependency-free terminal dashboard with Overview,
-Qwen log, Harness log, SearXNG log, and GPU tabs. Use `Tab` or `1`–`5` to switch,
+Qwen, personal/work Harness, SearXNG, and GPU tabs. Use `Tab` or `1`–`6` to switch,
 arrow/Page keys to scroll, `f` to follow logs, `r` to refresh, and `q` to quit.
-The original `status` and targeted `logs [qwen|harness|searxng]` commands remain
+The original `status` and targeted `logs [qwen|harness|harness-work|searxng]` commands remain
 available for scripts and copyable diagnostics.
 
 ## Desktop-use mode
@@ -195,6 +205,38 @@ repository.
 
 The SearXNG browser interface is available at
 `http://127.0.0.1:8888`.
+
+## Company repository profile
+
+Authenticate once, then launch the work Harness from the repository you want
+as its workspace:
+
+```bash
+local-ai github-login
+local-ai github-status
+cd /path/to/company/repository
+local-ai start --recipe exl3 qwen harness-work searxng
+```
+
+Open `http://127.0.0.1:3081`. The work login uses a separate GitHub CLI config
+directory at `$XDG_CONFIG_HOME/gh-work` (or `~/.config/gh-work`); no token is copied
+into this repository or Harness settings. Organization SSO authorization may
+still be required by the company. `local-ai stop harness-work` stops only this
+UI, while `local-ai logs harness-work` reads its journal.
+
+The work preset provides Harness's built-in shell, filesystem, repository
+search, background-job, instruction, skill, compaction, ask-user, and todo
+plugins. The [official GitHub MCP server](https://github.com/github/github-mcp-server)
+contributes repository, issue, and pull
+request inspection using `context,repos,issues,pull_requests`; both read-only
+and lockdown modes are forced by the launcher. Remote writes, Actions control,
+and browser-based GitHub login plugins are intentionally omitted.
+
+General web search is retained through SearXNG, including the restricted
+public-page snapshot tool. Its work-profile instructions prohibit sending
+proprietary code, credentials, internal URLs, company issue text, or logs to
+public search. Use only generic public queries; use local/GitHub tools for
+company material.
 
 ## Adapter
 

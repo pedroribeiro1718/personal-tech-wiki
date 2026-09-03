@@ -21,6 +21,7 @@ Captured on 2026-09-03 from the working RTX 5090 setup.
 | DeepSeek Harness | `@deepseek-ai/dsh@0.1.1-rc.2` |
 | Harness MCP client | `@deepseek-ai/dsh-mcp-client@0.1.1-rc.2` |
 | Harness Markdown/Mermaid renderer | `dsh-better-markdown@0.1.2` (bundles Mermaid `11.16.1`) |
+| GitHub MCP server | `ghcr.io/github/github-mcp-server:v1.11.0@sha256:48b071b92a297eb9b8ddb8dd87ccb4c75dbca6b0867eff034de4148722e0d164` |
 | Local SearXNG MCP adapter | `1.1.0` |
 | MCP SDK | `@modelcontextprotocol/sdk@2.0.0` |
 | Zod | `4.5.4` |

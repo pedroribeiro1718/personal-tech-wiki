@@ -1,0 +1,37 @@
+# Isolated work profile: local public web search plus read-only GitHub access.
+- id: web
+  config: {}
+
+- id: web-search-deepseek
+  disabled: true
+
+- id: tool-web
+  config:
+    search: false
+    fetch: false
+  disabled: true
+
+- insert:
+    - id: mcp-searxng
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: searxng
+        transport: stdio
+        command: __NODE_BIN__
+        args:
+          - __STACK_DIR__/mcp/server.mjs
+        env:
+          SEARXNG_URL: http://127.0.0.1:8888/
+        cwd: __STACK_DIR__/mcp
+        toolCallTimeoutMs: 30000
+        failOnStartupError: true
+
+    - id: mcp-github
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: github
+        transport: stdio
+        command: __STACK_DIR__/github-mcp-launcher.sh
+        cwd: __STACK_DIR__
+        toolCallTimeoutMs: 60000
+        failOnStartupError: false

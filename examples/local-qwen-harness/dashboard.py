@@ -18,8 +18,8 @@ CONTAINERS = {
     "exl3": "qwen38-full",
     "ninfer": "qwen38-ninfer",
 }
-TABS = ("Overview", "Qwen log", "Harness log", "SearXNG log", "GPU")
-LOG_TABS = {1, 2, 3}
+TABS = ("Overview", "Qwen log", "Harness log", "Work log", "SearXNG log", "GPU")
+LOG_TABS = {1, 2, 3, 4}
 ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 COLORS = False
 
@@ -56,8 +56,8 @@ def active_qwen() -> tuple[str, str, str]:
     return "none", "none", "stopped"
 
 
-def unit_state() -> str:
-    state = command(["systemctl", "--user", "is-active", "local-qwen-harness.service"])
+def unit_state(unit: str = "local-qwen-harness.service") -> str:
+    state = command(["systemctl", "--user", "is-active", unit])
     return state if state in {"active", "reloading", "inactive", "failed", "activating", "deactivating"} else "unavailable"
 
 
@@ -116,6 +116,7 @@ def overview() -> list[str]:
         " SERVICES",
         grid_row("Qwen", qwen_state, container, "http://127.0.0.1:30000/v1"),
         grid_row("Harness", unit_state(), "user systemd", "http://127.0.0.1:3080"),
+        grid_row("Work Harness", unit_state("local-qwen-harness-work.service"), "user systemd", "http://127.0.0.1:3081"),
         grid_row("SearXNG", searxng, "qwen-searxng", "http://127.0.0.1:8888"),
         "",
         " MODEL",
@@ -142,6 +143,11 @@ def logs_for(tab: int) -> list[str]:
         title = "Harness / local-qwen-harness.service"
         output = command(
             ["journalctl", "--user", "-u", "local-qwen-harness.service", "-n", "200", "--no-pager"]
+        )
+    elif tab == 3:
+        title = "Work Harness / local-qwen-harness-work.service"
+        output = command(
+            ["journalctl", "--user", "-u", "local-qwen-harness-work.service", "-n", "200", "--no-pager"]
         )
     else:
         title = "SearXNG / qwen-searxng"
@@ -195,7 +201,7 @@ def content_style(line: str, tab: int) -> int:
     lower = label.lower()
     if label in {"SERVICES", "MODEL", "GPU", "COMPUTE PROCESSES"}:
         return curses.A_BOLD | color(1)
-    if tab == 0 and line[2:20].strip() in {"Qwen", "Harness", "SearXNG"}:
+    if tab == 0 and line[2:20].strip() in {"Qwen", "Harness", "Work Harness", "SearXNG"}:
         state = line[20:36].strip()
         return color(2) if state in {"running", "active"} else curses.A_DIM | color(3)
     if any(word in lower for word in ("error", "failed", "traceback", "fatal")):
@@ -258,7 +264,7 @@ def draw(screen: curses.window, title: str, tab: int, lines: list[str], top: int
             put(screen, 4 + offset, 2, line, content_style(line, tab))
     put(screen, height - 2, 1, horizontal_border(width), border)
     mode = "   [following]" if follow and tab in LOG_TABS else ""
-    put(screen, height - 1, 1, f"Tab/1-5 view  Up/Down/Pg scroll  f follow  r refresh  q quit{mode}")
+    put(screen, height - 1, 1, f"Tab/1-6 view  Up/Down/Pg scroll  f follow  r refresh  q quit{mode}")
     screen.refresh()
     return top
 
@@ -282,7 +288,7 @@ def main(screen: curses.window) -> None:
         key = screen.getch()
         if key in (ord("q"), 27):
             return
-        if key in (9, curses.KEY_BTAB) or ord("1") <= key <= ord("5"):
+        if key in (9, curses.KEY_BTAB) or ord("1") <= key <= ord("6"):
             tab = (tab + (-1 if key == curses.KEY_BTAB else 1)) % len(TABS) if key in (9, curses.KEY_BTAB) else key - ord("1")
             top, follow, refreshed = 0, True, 0.0
         elif key in (curses.KEY_UP, curses.KEY_PPAGE, curses.KEY_HOME):
