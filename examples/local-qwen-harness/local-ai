@@ -584,15 +584,6 @@ start_targets() {
   fi
 }
 
-model_start() {
-  start_qwen
-  wait_for_qwen
-}
-
-model_stop() {
-  stop_targets "" qwen
-}
-
 stop_targets() {
   local recipe="$1"
   shift
@@ -680,15 +671,13 @@ USAGE
   local-ai COMMAND
 
 COMMANDS
-  start         Start one or more targets (defaults to all)
-  stop          Stop one or more targets (defaults to all)
-  prepare       Download/build one recipe without starting it
-  recipes       List recipes and their main characteristics
-  status        Show Harness, container, and GPU-process status
-  logs          Show the last 100 lines of the Harness log
-  model-start   Start the default Qwen recipe only (compatibility alias)
-  model-stop    Stop every Qwen recipe and release GPU memory (alias)
-  help          Show this help
+  start             Start one or more targets (defaults to all)
+  stop              Stop one or more targets (defaults to all)
+  prepare           Download/build one recipe without starting it
+  recipes           List recipes and their main characteristics
+  status            Show Harness, container, and GPU-process status
+  logs              Show the last 100 lines of the Harness log
+  help              Show this help
 
 OPTIONS
   --recipe RECIPE   Qwen recipe: sglang (default), exl3, or ninfer
@@ -727,8 +716,6 @@ case "${1:-}" in
       ninfer) prepare_qwen_ninfer ;;
     esac
     ;;
-  model-start) model_start ;;
-  model-stop) model_stop ;;
   stop)
     shift
     parse_service_arguments stop "$@"
