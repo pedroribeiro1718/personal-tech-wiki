@@ -28,17 +28,17 @@ services:
       - --model-id
       - qwen3.8-27b-ninfer
       - --max-context
-      - "252928"
+      - "${QWEN_CONTEXT_LENGTH:-252928}"
       - --kv-capacity
-      - auto
+      - "${QWEN_KV_CAPACITY:-auto}"
       - --max-concurrency
-      - "2"
+      - "${QWEN_MAX_CONCURRENCY:-2}"
       - --max-pending-requests
       - "2"
       - --pending-timeout-ms
       - "86400000"
       - --prefill-chunk
-      - "1024"
+      - "${QWEN_PREFILL_CHUNK:-1024}"
       - --kv-dtype
       - int8
       - --spec

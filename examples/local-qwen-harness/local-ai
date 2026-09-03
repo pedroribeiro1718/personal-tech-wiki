@@ -32,8 +32,13 @@ start_qwen() {
     printf 'Another Qwen recipe is already using the GPU. Run: local-ai stop qwen\n' >&2
     return 1
   fi
-  if docker container inspect "${QWEN_CONTAINER}" >/dev/null 2>&1; then
-    docker start "${QWEN_CONTAINER}" >/dev/null
+  if (( DESKTOP_USE )); then
+    check_desktop_memory "sglang" 800
+    printf 'Desktop-use profile: sglang, 65,536 context, 6.5-GiB total VRAM reserve.\n'
+    QWEN_CONTEXT_LENGTH=65536 \
+    QWEN_PREFILL_CHUNK=512 \
+    QWEN_GPU_MEMORY_UTILIZATION=0.80 \
+      docker compose -f "${STACK_DIR}/qwen.compose.yaml" up -d qwen
   else
     docker compose -f "${STACK_DIR}/qwen.compose.yaml" up -d qwen
   fi
@@ -41,6 +46,28 @@ start_qwen() {
 
 container_running() {
   [[ "$(docker container inspect --format '{{.State.Running}}' "$1" 2>/dev/null || true)" == "true" ]]
+}
+
+check_desktop_memory() {
+  local label="$1"
+  local utilization_thousandths="$2"
+  local total_mib
+  local free_mib
+  local required_mib
+
+  if ! IFS=, read -r total_mib free_mib < <(
+    nvidia-smi --query-gpu=memory.total,memory.free --format=csv,noheader,nounits 2>/dev/null
+  ); then
+    printf 'Cannot query the NVIDIA GPU; %s startup was not attempted.\n' "${label}" >&2
+    return 1
+  fi
+  required_mib=$((total_mib * utilization_thousandths / 1000))
+  if (( free_mib < required_mib )); then
+    printf '%s desktop-use needs about %s MiB free; only %s MiB is free.\n' \
+      "${label}" "${required_mib}" "${free_mib}" >&2
+    printf 'Close high-VRAM applications before retrying; startup was not attempted.\n' >&2
+    return 1
+  fi
 }
 
 wait_for_model() {
@@ -146,9 +173,13 @@ check_qwen_full_memory() {
     printf 'Cannot query the NVIDIA GPU; qwen-full startup was not attempted.\n' >&2
     return 1
   fi
-  required_mib=$((total_mib * 955 / 1000))
+  if (( DESKTOP_USE )); then
+    required_mib=$((total_mib * 820 / 1000))
+  else
+    required_mib=$((total_mib * 955 / 1000))
+  fi
   if (( free_mib < required_mib )); then
-    printf 'qwen-full needs about %s MiB free for gpu-memory-utilization=0.955; only %s MiB is free.\n' \
+    printf 'exl3 needs about %s MiB free for the selected memory profile; only %s MiB is free.\n' \
       "${required_mib}" "${free_mib}" >&2
     printf 'Close GPU applications and stop the graphical session before retrying; startup was not attempted.\n' >&2
     return 1
@@ -162,7 +193,17 @@ start_qwen_full() {
   fi
   check_qwen_full_memory
   ensure_full_patches
-  full_compose up -d qwen-full
+  if (( DESKTOP_USE )); then
+    printf 'Desktop-use profile: exl3, 114,688 context, about 5.9-GiB total VRAM reserve.\n'
+    QWEN_FULL_PATCH_DIR="${QWEN_FULL_PATCH_DIR}" \
+    QWEN_CONTEXT_LENGTH=114688 \
+    QWEN_PREFILL_CHUNK=1024 \
+    QWEN_GPU_MEMORY_UTILIZATION=0.82 \
+    QWEN_MAX_PIXELS=4194304 \
+      docker compose -f "${STACK_DIR}/qwen-full.compose.yaml" up -d qwen-full
+  else
+    full_compose up -d qwen-full
+  fi
   wait_for_model "Qwen full-context" "${QWEN_FULL_URL}" 450 "${QWEN_FULL_CONTAINER}"
 }
 
@@ -287,9 +328,13 @@ check_qwen_ninfer_memory() {
     printf 'Cannot query the NVIDIA GPU; qwen-ninfer startup was not attempted.\n' >&2
     return 1
   fi
-  required_mib=$((total_mib - 1080))
+  if (( DESKTOP_USE )); then
+    required_mib=26100
+  else
+    required_mib=$((total_mib - 1080))
+  fi
   if (( free_mib < required_mib )); then
-    printf 'qwen-ninfer needs approximately %s MiB free for its qualified 252,928-token profile; only %s MiB is free.\n' \
+    printf 'ninfer needs approximately %s MiB free for the selected memory profile; only %s MiB is free.\n' \
       "${required_mib}" "${free_mib}" >&2
     printf 'Close GPU applications and stop the graphical session before retrying; startup was not attempted.\n' >&2
     return 1
@@ -305,7 +350,17 @@ start_qwen_ninfer() {
   ensure_ninfer_source
   ensure_ninfer_image
   ensure_ninfer_model
-  ninfer_compose up -d qwen-ninfer
+  if (( DESKTOP_USE )); then
+    printf 'Desktop-use profile: ninfer, 122,880 context, about 6.5-GiB total VRAM reserve.\n'
+    QWEN_NINFER_MODEL_FILE="${QWEN_NINFER_MODEL_FILE}" \
+    QWEN_CONTEXT_LENGTH=122880 \
+    QWEN_KV_CAPACITY=122880 \
+    QWEN_MAX_CONCURRENCY=1 \
+    QWEN_PREFILL_CHUNK=512 \
+      docker compose -f "${STACK_DIR}/qwen-ninfer.compose.yaml" up -d qwen-ninfer
+  else
+    ninfer_compose up -d qwen-ninfer
+  fi
   wait_for_model "Qwen NInfer" "${QWEN_NINFER_URL}" 450 "${QWEN_NINFER_CONTAINER}"
 }
 
@@ -410,6 +465,7 @@ validate_recipe() {
 }
 
 SELECTED_RECIPE=""
+DESKTOP_USE=0
 PARSED_TARGETS=()
 
 parse_service_arguments() {
@@ -417,6 +473,7 @@ parse_service_arguments() {
   shift
 
   SELECTED_RECIPE=""
+  DESKTOP_USE=0
   PARSED_TARGETS=()
   while (( $# > 0 )); do
     case "$1" in
@@ -430,6 +487,13 @@ parse_service_arguments() {
         ;;
       --recipe=*)
         SELECTED_RECIPE="${1#--recipe=}"
+        ;;
+      --desktop-use)
+        if [[ "${mode}" != "start" ]]; then
+          printf '%s is valid only with the start command.\n' --desktop-use >&2
+          return 2
+        fi
+        DESKTOP_USE=1
         ;;
       --*)
         printf 'Unknown option: %s\n' "$1" >&2
@@ -550,7 +614,7 @@ usage() {
 Usage: local-ai COMMAND [OPTIONS] [TARGET ...]
 
 Commands:
-  start [--recipe RECIPE] [TARGET ...]
+  start [--recipe RECIPE] [--desktop-use] [TARGET ...]
                       Start targets with the selected Qwen recipe
   stop [--recipe RECIPE] [TARGET ...]
                       Stop targets; without --recipe, qwen stops every recipe
@@ -562,11 +626,13 @@ Commands:
 
 Targets: qwen, harness, searxng, all
 Recipes: sglang (default), exl3, ninfer
+--desktop-use reserves roughly 6 GiB for the graphical desktop and lowers
+context/prefill settings; it does not make gaming alongside the model viable.
 
 Examples:
   local-ai start qwen harness
   local-ai start --recipe exl3 qwen harness
-  local-ai start --recipe ninfer qwen harness searxng
+  local-ai start --recipe ninfer --desktop-use qwen harness searxng
   local-ai stop qwen
   local-ai prepare ninfer
 EOF

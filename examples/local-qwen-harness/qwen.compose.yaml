@@ -36,13 +36,13 @@ services:
       - --tp-size
       - "1"
       - --context-length
-      - "122880"
+      - "${QWEN_CONTEXT_LENGTH:-122880}"
       - --kv-cache-dtype
       - fp8_e4m3
       - --attention-backend
       - flashinfer
       - --chunked-prefill-size
-      - "1024"
+      - "${QWEN_PREFILL_CHUNK:-1024}"
       - --mamba-radix-cache-strategy
       - extra_buffer_lazy
       - --mamba-ssm-dtype
@@ -54,7 +54,7 @@ services:
       - --cuda-graph-max-bs-decode
       - "1"
       - --mem-fraction-static
-      - "0.86"
+      - "${QWEN_GPU_MEMORY_UTILIZATION:-0.86}"
       - --max-running-requests
       - "1"
       - --reasoning-parser

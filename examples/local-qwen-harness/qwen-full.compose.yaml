@@ -53,19 +53,19 @@ services:
       - --quantization-config
       - '{"linear":{"weight":"mxfp8"},"ignore":["re:.*visual\\..*","re:.*in_proj_a$","re:.*in_proj_b$","re:.*in_proj_ba$","re:.*mtp\\..*","lm_head"]}'
       - --max-model-len
-      - "262144"
+      - "${QWEN_CONTEXT_LENGTH:-262144}"
       - --gpu-memory-utilization
-      - "0.955"
+      - "${QWEN_GPU_MEMORY_UTILIZATION:-0.955}"
       - --max-num-seqs
       - "1"
       - --kv-cache-dtype
       - fp8
       - --max-num-batched-tokens
-      - "2048"
+      - "${QWEN_PREFILL_CHUNK:-2048}"
       - --speculative-config
       - '{"method":"mtp","num_speculative_tokens":3}'
       - --mm-processor-kwargs
-      - '{"truncation":false,"max_pixels":8388608}'
+      - '{"truncation":false,"max_pixels":${QWEN_MAX_PIXELS:-8388608}}'
       - --compilation-config
       - '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[4]}'
       - --reasoning-parser

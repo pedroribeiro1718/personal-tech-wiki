@@ -86,6 +86,7 @@ Manual commands:
   ${BIN_DIR}/local-ai start --recipe exl3 qwen harness
   ${BIN_DIR}/local-ai prepare ninfer
   ${BIN_DIR}/local-ai start --recipe ninfer qwen harness
+  ${BIN_DIR}/local-ai start --recipe ninfer --desktop-use qwen harness
   ${BIN_DIR}/local-ai stop qwen
   ${BIN_DIR}/local-ai start qwen
   ${BIN_DIR}/local-ai stop
