@@ -7,7 +7,7 @@ PROFILE_DIR="${DSH_DIR}/profiles/web"
 PRESET_DIR="${DSH_DIR}/.agent-presets/local-standard"
 BIN_DIR="${HOME}/.local/bin"
 
-for command_name in docker git node pnpm curl sed openssl sha256sum systemctl systemd-run journalctl; do
+for command_name in docker git node pnpm curl sed awk openssl sha256sum systemctl systemd-run journalctl; do
   if ! command -v "${command_name}" >/dev/null 2>&1; then
     printf 'Missing prerequisite: %s\n' "${command_name}" >&2
     exit 1
@@ -71,7 +71,7 @@ pnpm --dir "${STACK_DIR}/mcp" install --frozen-lockfile
 pnpm --dir "${PROFILE_DIR}" install
 
 docker volume inspect qwen38-hf-cache >/dev/null 2>&1 || docker volume create qwen38-hf-cache >/dev/null
-docker compose -f "${STACK_DIR}/qwen-sglang.compose.yaml" pull
+docker compose -f "${STACK_DIR}/qwen-sglang-122880.compose.yaml" pull
 docker compose -f "${STACK_DIR}/compose.yaml" pull
 
 ln -sfn "${STACK_DIR}/local-ai" "${BIN_DIR}/local-ai"

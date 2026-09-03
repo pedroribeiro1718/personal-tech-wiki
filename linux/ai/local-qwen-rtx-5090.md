@@ -97,23 +97,28 @@ enabled at boot. Valid targets are `qwen`, `harness`, and `searxng`; Qwen's
 recipe values are `sglang` (default), `exl3`, and `ninfer`. Omitting targets
 starts the selected recipe plus Harness and SearXNG. `local-ai stop qwen`
 stops every recipe unless a specific `--recipe` is supplied. Only one recipe
-can use the single GPU at a time.
+can use the single GPU at a time. Harness gives undocumented custom models a
+262,144-token fallback instead of deriving limits from `/v1/models`; the
+committed settings declare the real capacities, and every successful
+`local-ai start ... qwen` hot-synchronizes the active normal/desktop value.
 
 The direct GPU-unload command is `docker stop qwen38`. The next
 `docker start qwen38` reloads the cached model.
 
 ## Desktop-use mode
 
-`--desktop-use` retains roughly 5 GiB of the card for the graphical session:
+`--desktop-use` retains roughly 5 GiB of the card for the graphical session
+when using EXL3 or NInfer. SGLang remains unchanged because its normal profile
+was already qualified during ordinary desktop use:
 
-| Recipe | Context | Desktop adjustments | Approximate VRAM left outside the model |
-| --- | ---: | --- | ---: |
-| `sglang` | 98,304 | memory fraction 0.82; prefill 512 | 5.9 GiB |
-| `exl3` | 155,648 | memory fraction 0.85; prefill 1,024; 4-Mpx images | 4.9 GiB |
-| `ninfer` | 172,032 | fixed INT8 KV; concurrency 1; prefill 512 | 5.0 GiB |
+| Recipe | Normal target context | Desktop-use context | Desktop adjustments | Approximate VRAM left outside the model |
+| --- | ---: | ---: | --- | ---: |
+| `sglang` | 122,880 | 122,880 | unchanged; already desktop-qualified | ~4.6 GiB |
+| `exl3` | 262,144 | 155,648 | memory fraction 0.85; prefill 1,024; 4-Mpx images | 4.9 GiB |
+| `ninfer` | 252,928 | 172,032 | fixed INT8 KV; concurrency 1; prefill 512 | 5.0 GiB |
 
-The measured KDE plus lightly loaded Zen baseline was 3,185 MiB. This leaves
-roughly another 1.3–2.7 GiB for normal browser growth, but it cannot guarantee
+The measured KDE plus lightly loaded Zen baseline was 3,185 MiB. EXL3 and
+NInfer leave roughly another 1.3 GiB for normal browser growth, but cannot guarantee
 headroom for video, WebGL/WebGPU, or games. A startup preflight refuses the
 selected profile if current free VRAM is insufficient. Omitting the flag keeps
 the original high-context settings unchanged.
@@ -139,7 +144,7 @@ This protects the driver from a repeat of the previous VRAM-exhaustion failure.
 
 The measured starting point is `gpu-memory-utilization=0.955`. RTX 5090 cards
 can differ by a few MiB; if startup says the KV allocation narrowly misses,
-raise it to `0.956` in `qwen-exl3.compose.yaml`. Prefix caching stays disabled
+raise it to `0.956` in `qwen-exl3-262144.compose.yaml`. Prefix caching stays disabled
 because it does not fit alongside the native window and qualified vision
 ceiling on 32 GB. The test proves capacity plus basic retrieval, not general
 long-context reasoning.
@@ -174,7 +179,7 @@ its exact size and SHA-256. The model and build caches are not committed.
 ## Important pinned settings
 
 The authoritative command is
-[`qwen-sglang.compose.yaml`](../../examples/local-qwen-harness/qwen-sglang.compose.yaml).
+[`qwen-sglang-122880.compose.yaml`](../../examples/local-qwen-harness/qwen-sglang-122880.compose.yaml).
 Its main choices are:
 
 - main model: `gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090`
@@ -194,9 +199,11 @@ updating them.
 
 ## Vision and search notes
 
-Harness does not infer modalities from an OpenAI-compatible `/v1/models`
-response. The custom route therefore declares `input: [text, image]` in
-`bootstrap/harness/settings.yaml`. This exact endpoint was verified with a PNG;
+Harness does not reliably infer modalities or capacity from an
+OpenAI-compatible `/v1/models` response. The custom route therefore declares
+`input` and `contextWindow` in `bootstrap/harness/settings.yaml`. The helper
+updates only those declared context values atomically when switching profiles;
+Harness hot-reloads the file. This exact endpoint was verified with a PNG;
 SGLang returned HTTP 200 and accounted for image tokens.
 
 Search results come from the local SearXNG MCP tool. The companion `fetch_page`

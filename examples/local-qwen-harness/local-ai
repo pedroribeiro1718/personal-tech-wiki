@@ -26,6 +26,7 @@ QWEN_NINFER_MODEL_URL="https://huggingface.co/neroued/Qwen3.8-27B-nvfp4-NInfer/r
 HARNESS_URL="http://127.0.0.1:3080"
 DSH_PACKAGE="@deepseek-ai/dsh@0.1.1-rc.2"
 HARNESS_UNIT="local-qwen-harness.service"
+HARNESS_SETTINGS="${DSH_DIR:-${HOME}/.dsh}/settings.yaml"
 
 start_qwen() {
   if container_running "${QWEN_FULL_CONTAINER}" || container_running "${QWEN_NINFER_CONTAINER}"; then
@@ -33,41 +34,13 @@ start_qwen() {
     return 1
   fi
   if (( DESKTOP_USE )); then
-    check_desktop_memory "sglang" 820
-    printf 'Desktop-use profile: sglang, 98,304 context, about 5.9-GiB total VRAM reserve.\n'
-    QWEN_CONTEXT_LENGTH=98304 \
-    QWEN_PREFILL_CHUNK=512 \
-    QWEN_GPU_MEMORY_UTILIZATION=0.82 \
-      docker compose -f "${STACK_DIR}/qwen-sglang.compose.yaml" up -d qwen
-  else
-    docker compose -f "${STACK_DIR}/qwen-sglang.compose.yaml" up -d qwen
+    printf 'SGLang is already desktop-qualified; keeping its normal 122,880-token profile.\n'
   fi
+  docker compose -f "${STACK_DIR}/qwen-sglang-122880.compose.yaml" up -d qwen
 }
 
 container_running() {
   [[ "$(docker container inspect --format '{{.State.Running}}' "$1" 2>/dev/null || true)" == "true" ]]
-}
-
-check_desktop_memory() {
-  local label="$1"
-  local utilization_thousandths="$2"
-  local total_mib
-  local free_mib
-  local required_mib
-
-  if ! IFS=, read -r total_mib free_mib < <(
-    nvidia-smi --query-gpu=memory.total,memory.free --format=csv,noheader,nounits 2>/dev/null
-  ); then
-    printf 'Cannot query the NVIDIA GPU; %s startup was not attempted.\n' "${label}" >&2
-    return 1
-  fi
-  required_mib=$((total_mib * utilization_thousandths / 1000))
-  if (( free_mib < required_mib )); then
-    printf '%s desktop-use needs about %s MiB free; only %s MiB is free.\n' \
-      "${label}" "${required_mib}" "${free_mib}" >&2
-    printf 'Close high-VRAM applications before retrying; startup was not attempted.\n' >&2
-    return 1
-  fi
 }
 
 wait_for_model() {
@@ -151,7 +124,7 @@ ensure_full_patches() {
 
 full_compose() {
   QWEN_FULL_PATCH_DIR="${QWEN_FULL_PATCH_DIR}" \
-    docker compose -f "${STACK_DIR}/qwen-exl3.compose.yaml" "$@"
+    docker compose -f "${STACK_DIR}/qwen-exl3-262144.compose.yaml" "$@"
 }
 
 prepare_qwen_full() {
@@ -200,7 +173,7 @@ start_qwen_full() {
     QWEN_PREFILL_CHUNK=1024 \
     QWEN_GPU_MEMORY_UTILIZATION=0.85 \
     QWEN_MAX_PIXELS=4194304 \
-      docker compose -f "${STACK_DIR}/qwen-exl3.compose.yaml" up -d qwen-full
+      docker compose -f "${STACK_DIR}/qwen-exl3-262144.compose.yaml" up -d qwen-full
   else
     full_compose up -d qwen-full
   fi
@@ -307,7 +280,7 @@ ensure_ninfer_image() {
 
 ninfer_compose() {
   QWEN_NINFER_MODEL_FILE="${QWEN_NINFER_MODEL_FILE}" \
-    docker compose -f "${STACK_DIR}/qwen-ninfer.compose.yaml" "$@"
+    docker compose -f "${STACK_DIR}/qwen-ninfer-252928.compose.yaml" "$@"
 }
 
 prepare_qwen_ninfer() {
@@ -357,7 +330,7 @@ start_qwen_ninfer() {
     QWEN_KV_CAPACITY=172032 \
     QWEN_MAX_CONCURRENCY=1 \
     QWEN_PREFILL_CHUNK=512 \
-      docker compose -f "${STACK_DIR}/qwen-ninfer.compose.yaml" up -d qwen-ninfer
+      docker compose -f "${STACK_DIR}/qwen-ninfer-252928.compose.yaml" up -d qwen-ninfer
   else
     ninfer_compose up -d qwen-ninfer
   fi
@@ -367,7 +340,7 @@ start_qwen_ninfer() {
 prepare_qwen_sglang() {
   docker volume inspect qwen38-hf-cache >/dev/null 2>&1 || \
     docker volume create qwen38-hf-cache >/dev/null
-  docker compose -f "${STACK_DIR}/qwen-sglang.compose.yaml" pull qwen
+  docker compose -f "${STACK_DIR}/qwen-sglang-122880.compose.yaml" pull qwen
   printf 'sglang recipe is prepared. Nothing was started.\n'
 }
 
@@ -411,6 +384,74 @@ start_harness() {
 
   printf 'Harness did not become ready within 30 seconds. Run: local-ai logs\n' >&2
   return 1
+}
+
+sync_harness_context() {
+  local recipe="$1"
+  local sglang_context=122880
+  local exl3_context=262144
+  local ninfer_context=252928
+  local active_context
+  local temp_settings
+
+  if (( DESKTOP_USE )); then
+    case "${recipe}" in
+      exl3) exl3_context=155648 ;;
+      ninfer) ninfer_context=172032 ;;
+    esac
+  fi
+  case "${recipe}" in
+    sglang) active_context="${sglang_context}" ;;
+    exl3) active_context="${exl3_context}" ;;
+    ninfer) active_context="${ninfer_context}" ;;
+  esac
+
+  if [[ ! -f "${HARNESS_SETTINGS}" ]]; then
+    printf 'Harness settings are missing: %s (run ./bootstrap.sh)\n' \
+      "${HARNESS_SETTINGS}" >&2
+    return 1
+  fi
+
+  temp_settings="$(mktemp "${HARNESS_SETTINGS}.local-ai.XXXXXX")"
+  if ! awk \
+    -v sglang_id='gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090' \
+    -v exl3_id='qwen3.8-27b-full' \
+    -v ninfer_id='qwen3.8-27b-ninfer' \
+    -v sglang_context="${sglang_context}" \
+    -v exl3_context="${exl3_context}" \
+    -v ninfer_context="${ninfer_context}" '
+      {
+        stripped = $0
+        sub(/^[[:space:]]*/, "", stripped)
+        if (stripped == "- id: " sglang_id) current = "sglang"
+        else if (stripped == "- id: " exl3_id) current = "exl3"
+        else if (stripped == "- id: " ninfer_id) current = "ninfer"
+        else if (stripped ~ /^- id: /) current = ""
+
+        if (current != "" && stripped ~ /^contextWindow:[[:space:]]*/) {
+          match($0, /^[[:space:]]*/)
+          value = current == "sglang" ? sglang_context : \
+            (current == "exl3" ? exl3_context : ninfer_context)
+          print substr($0, 1, RLENGTH) "contextWindow: " value
+          seen[current]++
+          current = ""
+          next
+        }
+        print
+      }
+      END {
+        if (seen["sglang"] != 1 || seen["exl3"] != 1 || seen["ninfer"] != 1) exit 42
+      }
+    ' "${HARNESS_SETTINGS}" >"${temp_settings}"; then
+    rm -f -- "${temp_settings}"
+    printf 'Could not safely update Harness model capacities in %s; run ./bootstrap.sh.\n' \
+      "${HARNESS_SETTINGS}" >&2
+    return 1
+  fi
+  chmod --reference="${HARNESS_SETTINGS}" "${temp_settings}" 2>/dev/null || chmod 0600 "${temp_settings}"
+  mv -- "${temp_settings}" "${HARNESS_SETTINGS}"
+  printf 'Harness context metadata synchronized for %s (%s tokens).\n' \
+    "${recipe}" "${active_context}"
 }
 
 stop_harness() {
@@ -536,6 +577,7 @@ start_targets() {
       exl3) start_qwen_full ;;
       ninfer) start_qwen_ninfer ;;
     esac
+    sync_harness_context "${recipe}"
   fi
   if target_requested harness "$@"; then
     start_harness
@@ -626,8 +668,9 @@ Commands:
 
 Targets: qwen, harness, searxng, all
 Recipes: sglang (default), exl3, ninfer
---desktop-use reserves roughly 5 GiB for the graphical desktop and lowers
-context/prefill settings; it does not make gaming alongside the model viable.
+--desktop-use keeps SGLang unchanged; for EXL3/NInfer it reserves roughly
+5 GiB for the graphical desktop and lowers context/prefill settings. It does
+not make gaming alongside the model viable.
 
 Examples:
   local-ai start qwen harness

@@ -68,12 +68,17 @@ enabling a boot service. Nothing starts at boot, and all Docker services use
 `local-ai stop qwen` releases its CUDA allocation while leaving Harness and
 SearXNG alone. `model-start` and `model-stop` remain as compatibility aliases.
 Only one Qwen recipe can use the single GPU at a time. Select the matching
-model in Harness after starting an alternate recipe.
+model in Harness after starting an alternate recipe. Harness does not infer a
+custom model's context limit from this endpoint: its fallback is 262,144.
+The bootstrap settings therefore declare all three limits explicitly, and
+`local-ai start ... qwen` hot-synchronizes the active desktop/full value in
+`~/.dsh/settings.yaml` without restarting Harness.
 
 ## Desktop-use mode
 
-Add `--desktop-use` when starting Qwen to retain roughly 5 GiB of the card for
-KDE and accelerated browser workloads:
+Add `--desktop-use` when starting a long-context recipe to retain roughly
+5 GiB of the card for KDE and accelerated browser workloads. SGLang keeps its
+already-tested normal desktop settings:
 
 ```bash
 local-ai stop qwen
@@ -82,14 +87,15 @@ local-ai start --recipe ninfer --desktop-use qwen harness
 
 The flag applies a measured, backend-specific compromise:
 
-| Recipe | Context | Other changes | Approximate total VRAM left outside the model |
-| --- | ---: | --- | ---: |
-| `sglang` | 98,304 | memory fraction 0.82, prefill chunk 512 | 5.9 GiB |
-| `exl3` | 155,648 | memory fraction 0.85, prefill chunk 1,024, 4-Mpx image ceiling | 4.9 GiB |
-| `ninfer` | 172,032 | explicit INT8 KV capacity, concurrency 1, prefill chunk 512 | 5.0 GiB |
+| Recipe | Normal target context | Desktop-use context | Other desktop changes | Approximate total VRAM left outside the model |
+| --- | ---: | ---: | --- | ---: |
+| `sglang` | 122,880 | 122,880 | unchanged; already desktop-qualified | ~4.6 GiB |
+| `exl3` | 262,144 | 155,648 | memory fraction 0.85, prefill chunk 1,024, 4-Mpx image ceiling | 4.9 GiB |
+| `ninfer` | 252,928 | 172,032 | explicit INT8 KV capacity, concurrency 1, prefill chunk 512 | 5.0 GiB |
 
-The current KDE plus lightly loaded Zen baseline was 3,185 MiB, leaving about
-1.3–2.7 GiB for more tabs and ordinary accelerated pages. Browser VRAM use is
+The current KDE plus lightly loaded Zen baseline was 3,185 MiB. EXL3 and
+NInfer leave about 1.3 GiB beyond that baseline for more tabs and ordinary
+accelerated pages. Browser VRAM use is
 content-dependent, so video, WebGL/WebGPU, and games can still exceed that
 allowance. Startup checks current free VRAM and refuses rather than forcing an
 unsafe allocation. Without the flag, every original full-performance profile
@@ -115,7 +121,7 @@ The profile is deliberately single-user: 262,144 context, FP8 KV, MTP-3,
 because the measured full-window-plus-vision profile does not have enough
 headroom for it. `gpu-memory-utilization=0.955` was qualified on one physical
 RTX 5090; if startup misses by a few MiB on this card, change it to `0.956` in
-`qwen-exl3.compose.yaml` and record that change here.
+`qwen-exl3-262144.compose.yaml` and record that change here.
 
 Without `--desktop-use`, vLLM reserves 95.5% of the card. `local-ai` checks
 free VRAM and refuses to start unless that budget is available. On KDE,
@@ -192,7 +198,7 @@ Harness renders fenced `mermaid` blocks through
 rendering does not depend on a CDN. After restoring or changing the plugin,
 reload the Harness page once.
 
-See `qwen-sglang.compose.yaml`, `qwen-exl3.compose.yaml`, and
-`qwen-ninfer.compose.yaml` for every inference parameter, and `VERSIONS.md`
+See `qwen-sglang-122880.compose.yaml`, `qwen-exl3-262144.compose.yaml`, and
+`qwen-ninfer-252928.compose.yaml` for every inference parameter, and `VERSIONS.md`
 for captured source/image/model revisions. Model caches are large and are not
 part of this bundle; a fresh machine downloads them separately.

@@ -10,14 +10,17 @@ llm-pi-ai:
       baseURL: http://127.0.0.1:30000/v1
       models:
         - id: gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090
+          contextWindow: 122880
           input:
             - text
             - image
         - id: qwen3.8-27b-full
+          contextWindow: 262144
           input:
             - text
             - image
         - id: qwen3.8-27b-ninfer
+          contextWindow: 252928
           input:
             - text
 agent-default-model:
