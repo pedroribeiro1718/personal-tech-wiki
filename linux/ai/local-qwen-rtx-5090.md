@@ -87,6 +87,10 @@ RAM. Text precision/speed are retained, but large images preprocess slowly.
 Its 196K desktop mode keeps the projector on GPU. For full context plus routine
 vision, `a3b` is the better-balanced option.
 
+The UDQ4 service sets `GGML_CUDA_DISABLE_GRAPHS=1` to avoid a reproducible
+llama.cpp CUDA-graph hang on RTX 5090 (RC watchdog/Xid 8). This keeps MTP,
+Flash Attention, GPU offload, and the configured context window intact.
+
 ## Reasoning controls
 
 The Qwen 3.8 recipes expose `Off`, `Low`, `Medium`, and `Xhigh` in Harness's

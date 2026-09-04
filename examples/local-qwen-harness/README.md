@@ -84,6 +84,10 @@ can be very slow. Its 196K desktop profile keeps that projector on GPU and is
 the practical multimodal setting. The full `a3b` profile retains GPU vision
 with materially better headroom.
 
+The UDQ4 service disables llama.cpp CUDA graphs. This is a targeted stability
+workaround for the RTX 5090 RC-watchdog/Xid-8 hang; MTP, Flash Attention, full
+GPU offload, and both context profiles remain enabled.
+
 Canonical served IDs include model, engine, quantization, and normal context;
 `local-ai recipes` prints them. Compose files contain every inference flag and
 [`VERSIONS.md`](VERSIONS.md) records immutable sources.
