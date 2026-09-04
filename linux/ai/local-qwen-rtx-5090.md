@@ -107,21 +107,21 @@ The stack prefers maintained integrations:
 - `@j0hanz/fetch-url-mcp` provides restricted, read-only
   `mcp__fetch__fetch-url` with SSRF defenses and no JavaScript execution.
 - `dsh-better-markdown` renders Mermaid locally.
-- Microsoft `playwright-cli` gives both Harness profiles browser automation
-  through Bash. For browser-facing work, Harness must exercise the changed
-  behavior, check console errors, and report its verification before declaring
-  success. Existing project Playwright tests take priority.
+- Microsoft `playwright-cli` and its official bundled skill give both Harness
+  profiles browser automation through Bash. Harness must validate locator
+  uniqueness and behavior, check console errors, and report exact verification.
+  Existing project Playwright tests take priority.
 - the official GitHub MCP server serves the work profile read-only and in
   lockdown mode.
 
 The CLI is deliberately used instead of a custom browser plugin or Playwright
 MCP: it is Microsoft's recommended, lower-context option for coding agents.
-`./bootstrap.sh` installs one shared pinned Chromium in the stack cache. A Node
-script can import the installed `playwright` package for repeatable multi-step
-checks without modifying the target repository. Harness Bash calls do not keep
-CLI browsers alive, so one-shot CLI work must open, inspect, and close in the
-same call. Agents validate that proposed locators are unique and functional,
-avoid `npx`, and remove unrequested inspection artifacts.
+`./bootstrap.sh` keeps the official guide and references behind a concise
+Harness-specific entrypoint, with one shared pinned Chromium in the stack cache.
+Harness's bundled persistent Bash tool keeps CLI browsers alive across calls.
+Direct commands are preferred; `run-code` is reserved for checks they cannot
+express. Agents avoid `npx`, ad-hoc DOM scrapers, and unrequested inspection
+artifacts.
 
 Harness rc.2 cannot send the complete Qwen sampling tuple, so sampling is
 owned by each model server. Qwen3.8 uses its official mode-aware defaults. The

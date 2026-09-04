@@ -19,7 +19,7 @@ backup() {
 }
 
 install_profile() {
-  local home="$1" kind="$2" preset="$3" profile target template rendered
+  local home="$1" kind="$2" preset="$3" profile target template rendered skill
   profile="$home/profiles/web"; target="$home/.agent-presets/$preset"
   template="$STACK/bootstrap/$kind/cordis.patch.yml.in"
   mkdir -p "$profile" "$target"
@@ -39,6 +39,13 @@ install_profile() {
   done
   rm -f "$rendered"
   pnpm --dir "$profile" install
+  skill="$profile/node_modules/@playwright/cli/skills/playwright-cli"
+  mkdir -p "$home/skills/playwright-cli"
+  cp -a "$skill/." "$home/skills/playwright-cli/"
+  install -m 0644 "$skill/SKILL.md" \
+    "$home/skills/playwright-cli/references/cli.md"
+  install -m 0644 "$STACK/bootstrap/harness/playwright-cli-harness.md" \
+    "$home/skills/playwright-cli/SKILL.md"
 }
 
 install_profile "$PERSONAL" harness local-standard

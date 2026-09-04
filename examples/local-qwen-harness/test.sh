@@ -22,10 +22,17 @@ rg -q '@j0hanz/fetch-url-mcp' "$ROOT/bootstrap/harness/package.json"
 rg -q 'reasoningEfforts:' "$ROOT/bootstrap/harness/settings.yaml"
 rg -q 'thinkingFormat: chat-template' "$ROOT/local-ai"
 rg -q '"@playwright/cli": "0.1.18"' "$ROOT/bootstrap/harness/package.json"
+rg -q 'skills/playwright-cli' "$ROOT/bootstrap.sh"
+rg -q 'playwright-cli-harness.md' "$ROOT/bootstrap.sh"
+rg -q 'references/cli.md' "$ROOT/bootstrap.sh"
+rg -q 'Prefer direct commands' "$ROOT/bootstrap/harness/playwright-cli-harness.md"
+rg -q 'dsh-tool-bash-persistent' "$ROOT/bootstrap/harness/agent-presets/local-standard/agent.cordis.yml"
+rg -q 'dsh-terminal-bash' "$ROOT/bootstrap/harness/agent-presets/local-standard/agent.cordis.yml"
 rg -q 'playwright-cli' "$ROOT/bootstrap/harness-work/agent-presets/local-code-work/agent.cordis.yml"
 for preset in "$ROOT/bootstrap/harness/agent-presets/local-standard/agent.cordis.yml" \
   "$ROOT/bootstrap/harness-work/agent-presets/local-code-work/agent.cordis.yml"; do
   rg -q 'Never use npx' "$preset"
+  rg -q 'installed playwright-cli' "$preset"
 done
 rg -q -- '--sampling-defaults' "$ROOT/qwen-sglang-nvfp4-122880.compose.yaml"
 rg -q -- '--generation-config' "$ROOT/qwen-vllm-exl3-k5k6-262144.compose.yaml"

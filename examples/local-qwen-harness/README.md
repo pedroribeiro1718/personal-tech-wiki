@@ -128,23 +128,21 @@ Ready-made integrations are used before custom code:
   read-only `mcp__fetch__fetch-url`, with DNS/IP/redirect checks and no
   JavaScript execution.
 - `dsh-better-markdown` renders Mermaid locally.
-- Microsoft `playwright-cli` provides token-efficient browser automation to
-  both profiles through the existing Bash tool. Harness is instructed to run
-  it for browser-facing changes and not claim success without exercising the
-  behavior and checking console errors.
+- Microsoft `playwright-cli` and its bundled official skill provide
+  token-efficient browser automation to both profiles through Bash. Harness
+  validates locator uniqueness and behavior and checks console errors.
 - the work profile launches GitHub's official MCP server in read-only,
   lockdown mode.
 
 The official CLI was chosen instead of a custom Harness plugin or Playwright
 MCP. Microsoft recommends CLI+skills for coding agents because it avoids large
-MCP tool schemas; Harness can discover its commands with `playwright-cli
---help`. Bootstrap installs one shared pinned Chromium under
+MCP tool schemas. Bootstrap keeps its official guide and references behind a
+concise Harness-specific entrypoint, plus one shared pinned Chromium under
 `~/.cache/local-qwen-harness/playwright-browsers`. Projects that already contain
-Playwright tests keep using their own suite; repeatable ad-hoc checks can import
-the installed `playwright` package from Node without another project install.
-Because Harness isolates Bash calls, a CLI browser is opened, inspected, and
-closed in one call. Agents must validate locator uniqueness and behavior, never
-invoke `npx`, and remove unrequested inspection artifacts.
+Playwright tests keep using their own suite. Harness's bundled persistent Bash
+tool keeps the CLI browser available across calls. Direct commands are
+preferred; `run-code` is reserved for checks they cannot express. Agents never
+invoke `npx` or write ad-hoc DOM scrapers.
 
 ## Sampling defaults
 

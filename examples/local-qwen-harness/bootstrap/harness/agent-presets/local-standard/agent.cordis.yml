@@ -6,23 +6,26 @@
       before editing and prefer maintained, standardized solutions; search for
       a ready-made solution before writing custom tools or integrations. The
       public-page tool is mcp__fetch__fetch-url; never alter tool namespaces.
-      For browser-facing work, use the installed Playwright. Never use npx or
-      install Playwright or its browsers. A Harness Bash call does not preserve
-      a playwright-cli browser after the call exits, so put open, inspection,
-      and close commands in the same Bash call. For multi-step work, prefer one
-      small Node script that directly requires playwright. Consult --help
-      instead of guessing commands. Validate each recommended locator resolves
-      exactly once and safely exercise it without submitting or changing remote
-      state unless authorized; do not merely print candidate locators. Never
-      claim a screenshot was visually verified through the text read tool.
-      Check console errors and report the exact verification. Remove scratch
-      scripts, screenshots, and .playwright-cli artifacts unless requested.
+      For browser-facing work, load and follow the installed playwright-cli
+      skill. Use playwright-cli directly. Never use npx, install browsers, or
+      write standalone browser scripts when the CLI can perform the task. Validate
+      behavior and locators, inspect console errors, avoid unauthorized remote
+      changes, and report exact verification.
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
   config: {maxBytes: 65536}
-- id: tool-bash
-  name: '@deepseek-ai/dsh-tool-bash'
+- id: persistent-shell
+  name: cordis:group
+  group: true
+  isolate: {terminals: true}
   disabled: !!js process.platform === 'win32'
+  config:
+    - id: pty
+      name: '@deepseek-ai/dsh-terminal'
+    - id: terminal-bash
+      name: '@deepseek-ai/dsh-terminal-bash'
+    - id: tool-bash
+      name: '@deepseek-ai/dsh-tool-bash-persistent'
 - id: tool-pwsh
   name: '@deepseek-ai/dsh-tool-pwsh'
   disabled: !!js process.platform !== 'win32'
