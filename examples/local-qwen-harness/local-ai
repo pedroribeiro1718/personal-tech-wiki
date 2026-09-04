@@ -283,22 +283,22 @@ logs() {
 
 show_recipes() {
   local r mark vision
-  printf 'MODEL ARTIFACTS\n+---------+------------------+-----------+---------------+-----------+\n'
-  printf '| %-7s | %-16s | %-9s | %-13s | %-9s |\n' RECIPE 'BASE MODEL' ENGINE QUANTIZATION SOURCE
-  printf '+---------+------------------+-----------+---------------+-----------+\n'
+  printf 'MODEL ARTIFACTS\n+---------+-------------------+-------------+-----------------+-----------------+\n'
+  printf '| %-7s | %-17s | %-11s | %-15s | %-15s |\n' RECIPE 'BASE MODEL' ENGINE QUANTIZATION 'ARTIFACT SOURCE'
+  printf '+---------+-------------------+-------------+-----------------+-----------------+\n'
   for r in "${RECIPES[@]}"; do
     mark="$r"; [[ "$r" == sglang ]] && mark+='*'
-    printf '| %-7s | %-16s | %-9s | %-13s | %-9s |\n' "$mark" "${BASE[$r]}" "${ENGINE[$r]}" "${WEIGHTS[$r]}" "${SOURCE[$r]}"
+    printf '| %-7s | %-17s | %-11s | %-15s | %-15s |\n' "$mark" "${BASE[$r]}" "${ENGINE[$r]}" "${WEIGHTS[$r]}" "${SOURCE[$r]}"
   done
-  printf '+---------+------------------+-----------+---------------+-----------+\n\n'
-  printf 'RUNTIME PROFILES\n+---------+------+---------+---------+--------+----------------------+---------+\n'
-  printf '| %-7s | %-4s | %7s | %7s | %-6s | %-20s | %-7s |\n' RECIPE KV MAX DESKTOP VISION REASONING DRAFT
-  printf '+---------+------+---------+---------+--------+----------------------+---------+\n'
+  printf '+---------+-------------------+-------------+-----------------+-----------------+\n\n'
+  printf 'RUNTIME PROFILES\n+---------+------+---------+---------+--------+----------------------+----------+\n'
+  printf '| %-7s | %-4s | %7s | %7s | %-6s | %-20s | %-8s |\n' RECIPE KV MAX DESKTOP VISION REASONING DRAFT
+  printf '+---------+------+---------+---------+--------+----------------------+----------+\n'
   for r in "${RECIPES[@]}"; do
     mark="$r"; [[ "$r" == sglang ]] && mark+='*'; vision=no; [[ "${VISION[$r]}" == 1 ]] && vision=yes
-    printf '| %-7s | %-4s | %7s | %7s | %-6s | %-20s | %-7s |\n' "$mark" "${KV[$r]}" "${CONTEXT[$r]}" "${DESKTOP[$r]}" "$vision" "${REASON[$r]}" "${SPEC[$r]}"
+    printf '| %-7s | %-4s | %7s | %7s | %-6s | %-20s | %-8s |\n' "$mark" "${KV[$r]}" "${CONTEXT[$r]}" "${DESKTOP[$r]}" "$vision" "${REASON[$r]}" "${SPEC[$r]}"
   done
-  printf '+---------+------+---------+---------+--------+----------------------+---------+\n\n'
+  printf '+---------+------+---------+---------+--------+----------------------+----------+\n\n'
   printf 'All recipes use http://127.0.0.1:30000/v1; * is the default.\n'
 }
 
