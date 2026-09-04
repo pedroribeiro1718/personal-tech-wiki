@@ -41,7 +41,9 @@ Targets are `qwen`, `harness`, and `searxng`; no target means all. Only one
 recipe may run at once, all use `http://127.0.0.1:30000/v1`, and a new Harness
 session should be started after changing recipes. Harness retains the one
 last-used catalog entry while the endpoint is stopped because it requires a
-default model.
+default model. `local-ai` reloads active personal/work Harness processes after
+a model switch because a browser refresh does not reload Harness's cached
+catalog.
 
 | Recipe | Base model | Engine | Quantization | Source | KV | Normal | Desktop | Image | Reasoning |
 | --- | --- | --- | --- | --- | --- | ---: | ---: | --- | --- |

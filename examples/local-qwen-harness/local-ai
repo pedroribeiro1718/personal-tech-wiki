@@ -217,6 +217,22 @@ sync_from_api() {
   for recipe in "${RECIPES[@]}"; do [[ "$id" == "${MODEL[$recipe]}" ]] && { sync_model "$recipe" "$context"; return; }; done
 }
 
+wait_harness() {
+  local url="$1"
+  for _ in {1..30}; do curl -fsS --max-time 2 "$url" >/dev/null 2>&1 && return; sleep 1; done
+  return 1
+}
+
+reload_harnesses() {
+  local unit url
+  for unit in local-qwen-harness.service local-qwen-harness-work.service; do
+    systemctl --user is-active --quiet "$unit" || continue
+    [[ "$unit" == *-work.* ]] && url=http://127.0.0.1:3081 || url=http://127.0.0.1:3080
+    systemctl --user restart "$unit"; wait_harness "$url" || die "Harness reload failed: $url"
+    printf 'Harness reloaded for the updated model catalog: %s\n' "$url"
+  done
+}
+
 harness() {
   local action="$1" home unit url port workspace
   if (( WORK_MODE )); then home="$WORK_DSH_DIR"; unit=local-qwen-harness-work.service; url=http://127.0.0.1:3081; workspace="${LOCAL_AI_WORKSPACE:-$PWD}"
@@ -226,13 +242,13 @@ harness() {
     systemctl --user is-active --quiet "$unit" && systemctl --user stop "$unit" || true
     printf 'Harness stopped: %s\n' "$url"; return
   fi
-  systemctl --user is-active --quiet "$unit" && { printf 'Harness already running: %s\n' "$url"; return; }
+  systemctl --user is-active --quiet "$unit" && { printf 'Harness ready: %s\n' "$url"; return; }
   sync_from_api; systemctl --user reset-failed "$unit" >/dev/null 2>&1 || true
   systemd-run --user --quiet --collect --unit="$unit" --property=Type=exec \
     --property=KillMode=control-group --property=TimeoutStopSec=15 --working-directory="$workspace" \
     --setenv="DSH_HOME=$home" --setenv="QWEN_LOCAL_API_KEY=${QWEN_LOCAL_API_KEY:-local-no-key}" \
     "$(command -v pnpm)" dlx "$DSH_PACKAGE" web --port "$port" --no-open
-  for _ in {1..30}; do curl -fsS --max-time 2 "$url" >/dev/null 2>&1 && { printf 'Harness ready: %s\n' "$url"; return; }; sleep 1; done
+  wait_harness "$url" && { printf 'Harness ready: %s\n' "$url"; return; }
   journalctl --user -u "$unit" -n 40 --no-pager >&2 || true; return 1
 }
 
@@ -250,7 +266,7 @@ service_targets() {
   local action="$1" recipe="$2"
   if [[ "$action" == start ]]; then
     requested searxng && docker compose -f "$STACK/compose.yaml" up -d searxng
-    requested qwen && start_model "$recipe"
+    requested qwen && { start_model "$recipe"; reload_harnesses; }
     requested harness && harness start
   else
     requested harness && harness stop

@@ -46,7 +46,9 @@ Targets are `qwen`, `harness`, and `searxng`; omit them for all three. Start a
 new Harness session after switching recipes. The live Harness catalog contains
 only the last started model and its actual context limit. Harness requires a
 default model entry, so that one entry remains visible while its endpoint is
-stopped.
+stopped. Model switches automatically reload any active personal/work Harness
+processes because Harness reads the catalog only at process startup; refreshing
+the browser alone is insufficient.
 
 ## Recipes
 
