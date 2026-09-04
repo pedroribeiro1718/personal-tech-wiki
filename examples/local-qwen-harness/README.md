@@ -25,8 +25,10 @@ cd personal-tech-wiki/examples/local-qwen-harness
 
 Bootstrap restores `~/.dsh` and `~/.dsh-work`, installs pinned Harness
 plugins, pulls/builds pinned runtimes, and links `~/.local/bin/local-ai`. It
-does not start services or enable autostart. Model weights remain in local
-caches and are downloaded separately.
+does not start services or enable autostart. If a model is already serving,
+bootstrap restores that live model and context in both Harness catalogs after
+installing the static profiles. Model weights remain in local caches and are
+downloaded separately.
 
 ## Everyday commands
 

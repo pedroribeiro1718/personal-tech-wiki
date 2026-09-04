@@ -21,7 +21,9 @@ cd personal-tech-wiki/examples/local-qwen-harness
 ```
 
 Bootstrap restores both Harness profiles and pinned dependencies but starts
-nothing. Model weights/caches are deliberately excluded from Git.
+nothing. If a model is already serving, it resynchronizes that model and its
+actual context into both Harness catalogs after reinstalling the static
+templates. Model weights/caches are deliberately excluded from Git.
 
 ## Commands
 

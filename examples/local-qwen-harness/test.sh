@@ -10,6 +10,7 @@ lines="$(wc -l "${files[@]}" | tail -1 | awk '{print $1}')"
 (( $(wc -l < "$ROOT/local-ai") <= 400 )) || { echo "local-ai exceeds 400 lines" >&2; exit 1; }
 
 bash -n "$ROOT/local-ai" "$ROOT/bootstrap.sh" "$ROOT/github-mcp-launcher.sh"
+rg -q '"\$STACK/local-ai" sync' "$ROOT/bootstrap.sh"
 python3 -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' "$ROOT/dashboard.py"
 python3 -m json.tool "$ROOT/bootstrap/harness/package.json" >/dev/null
 for file in "$ROOT"/qwen-*.compose.yaml; do

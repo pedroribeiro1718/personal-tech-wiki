@@ -391,6 +391,7 @@ case "${1:-}" in
   logs) shift; [[ "${1:-}" == --work ]] && { WORK_MODE=1; shift; }; (( $# <= 1 )) || die "Usage: local-ai logs [--work] [TARGET]"; logs "${1:-}" ;;
   github-login) github login ;;
   github-status) github status ;;
+  sync) sync_from_api; reload_harnesses ;;
   test) exec "$STACK/test.sh" ;;
   help|-h|--help) usage ;;
   "") usage; exit 2 ;;

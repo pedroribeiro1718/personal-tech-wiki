@@ -50,6 +50,8 @@ docker compose -f "$STACK/compose.yaml" pull
 docker pull "ghcr.io/github/github-mcp-server:v1.11.0@sha256:48b071b92a297eb9b8ddb8dd87ccb4c75dbca6b0867eff034de4148722e0d164"
 mkdir -p "$HOME/.local/bin"
 ln -sfn "$STACK/local-ai" "$HOME/.local/bin/local-ai"
+curl -fsS --max-time 2 http://127.0.0.1:30000/v1/models >/dev/null 2>&1 &&
+  "$STACK/local-ai" sync
 
 cat <<EOF
 Bootstrap complete. Nothing was started or enabled at boot.
