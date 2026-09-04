@@ -6,8 +6,8 @@ Reproducible, manually started local-agent stack:
 - DeepSeek Harness at `http://127.0.0.1:3080`
 - isolated work Harness at `http://127.0.0.1:3081`
 - private SearXNG at `http://127.0.0.1:8888`
-- native Harness search, restricted public-page fetch, Mermaid, and optional
-  read-only GitHub integration
+- native Harness search, restricted public-page fetch, Mermaid, Playwright
+  browser acceptance, and optional read-only GitHub integration
 
 Nothing is enabled at boot. Only one model recipe runs at a time.
 
@@ -126,8 +126,32 @@ Ready-made integrations are used before custom code:
   read-only `mcp__fetch__fetch-url`, with DNS/IP/redirect checks and no
   JavaScript execution.
 - `dsh-better-markdown` renders Mermaid locally.
+- Microsoft `playwright-cli` provides token-efficient browser automation to
+  both profiles through the existing Bash tool. Harness is instructed to run
+  it for browser-facing changes and not claim success without exercising the
+  behavior and checking console errors.
 - the work profile launches GitHub's official MCP server in read-only,
   lockdown mode.
+
+The official CLI was chosen instead of a custom Harness plugin or Playwright
+MCP. Microsoft recommends CLI+skills for coding agents because it avoids large
+MCP tool schemas; Harness can discover its commands with `playwright-cli
+--help`. Bootstrap installs one shared pinned Chromium under
+`~/.cache/local-qwen-harness/playwright-browsers`. Projects that already contain
+Playwright tests keep using their own suite; repeatable ad-hoc checks can import
+the installed `playwright` package from Node without another project install.
+
+## Sampling defaults
+
+Harness `0.1.1-rc.2` can send `temperature`, but its provider-neutral request
+contract cannot send `top_p`, `top_k`, `min_p`, or penalties. The Qwen3.8
+SGLang/vLLM recipes therefore explicitly load the model's generation config;
+the llama.cpp recipe pins Qwen3.8's thinking defaults (`1.0`, `0.95`, `20`,
+`0`, presence `0`, repetition `1`) at the server. Client-supplied values still
+win. NInfer has fixed server defaults (`0.6`, `0.95`, `20`, `0`, presence `1`),
+so its `ninfer` and `a3b` recipes cannot exactly track every Qwen mode through
+this Harness release. Do not compare sampler-sensitive quality without noting
+that limitation.
 
 The old custom search/fetch adapter was removed. The generic Harness `web`
 plugin may still expose a `web_search` schema, but `dsh-searxng` is its

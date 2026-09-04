@@ -6,6 +6,12 @@
       before editing and prefer maintained, standardized solutions; search for
       a ready-made solution before writing custom tools or integrations. The
       public-page tool is mcp__fetch__fetch-url; never alter tool namespaces.
+      For browser-facing work, use the installed Playwright; never install it
+      or its browsers. Use playwright-cli for one-shot inspection and a Node
+      script requiring playwright for repeatable multi-step checks. Do not
+      claim success until you exercise the changed behavior, check console
+      errors, and report the exact verification. Keep .playwright-cli artifacts
+      uncommitted unless the user requests them.
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
   config: {maxBytes: 65536}

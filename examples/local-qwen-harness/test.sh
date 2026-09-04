@@ -10,7 +10,7 @@ lines="$(wc -l "${files[@]}" | tail -1 | awk '{print $1}')"
 (( $(wc -l < "$ROOT/local-ai") <= 400 )) || { echo "local-ai exceeds 400 lines" >&2; exit 1; }
 
 bash -n "$ROOT/local-ai" "$ROOT/bootstrap.sh" "$ROOT/github-mcp-launcher.sh"
-python3 -m py_compile "$ROOT/dashboard.py"
+python3 -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' "$ROOT/dashboard.py"
 python3 -m json.tool "$ROOT/bootstrap/harness/package.json" >/dev/null
 for file in "$ROOT"/qwen-*.compose.yaml; do
   QWEN_FULL_PATCH_DIR=/tmp QWEN_NINFER_MODEL_FILE=/tmp/model \
@@ -20,5 +20,10 @@ rg -q 'dsh-searxng' "$ROOT/bootstrap/harness/package.json"
 rg -q '@j0hanz/fetch-url-mcp' "$ROOT/bootstrap/harness/package.json"
 rg -q 'reasoningEfforts:' "$ROOT/bootstrap/harness/settings.yaml"
 rg -q 'thinkingFormat: chat-template' "$ROOT/local-ai"
+rg -q '"@playwright/cli": "0.1.18"' "$ROOT/bootstrap/harness/package.json"
+rg -q 'playwright-cli' "$ROOT/bootstrap/harness-work/agent-presets/local-code-work/agent.cordis.yml"
+rg -q -- '--sampling-defaults' "$ROOT/qwen-sglang-nvfp4-122880.compose.yaml"
+rg -q -- '--generation-config' "$ROOT/qwen-vllm-exl3-k5k6-262144.compose.yaml"
+rg -q -- '--presence-penalty' "$ROOT/qwen-llamacpp-ud-q4-k-xl-262144.compose.yaml"
 "$ROOT/local-ai" recipes | awk '/^[+|]/{if(length != 81) exit 1}'
 printf 'OK: syntax, Compose, integration pins, and code budget (%s/1800).\n' "$lines"

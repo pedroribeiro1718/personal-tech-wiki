@@ -59,6 +59,8 @@ services:
       - "${QWEN_GPU_MEMORY_UTILIZATION:-0.86}"
       - --max-running-requests
       - "1"
+      - --sampling-defaults
+      - model
       - --reasoning-parser
       - qwen3
       - --tool-call-parser

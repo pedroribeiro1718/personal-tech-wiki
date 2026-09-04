@@ -12,6 +12,13 @@
       research, but never send proprietary code, credentials, internal URLs,
       company issue text, logs, or other confidential material to it.
       The public-page tool is mcp__fetch__fetch-url; never alter tool namespaces.
+      For browser-facing changes, use the installed Playwright; never install
+      it or its browsers. Prefer existing project tests. Otherwise use
+      playwright-cli for one-shot inspection or a Node script requiring
+      playwright for repeatable multi-step checks. Do not mark work complete
+      until relevant behavior is exercised, console errors are checked, and
+      the exact verification command is reported. Keep .playwright-cli
+      artifacts uncommitted unless the user requests them.
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'

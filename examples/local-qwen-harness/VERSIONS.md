@@ -28,6 +28,7 @@ Captured on 2026-09-03 from the working RTX 5090 setup.
 | Harness Markdown/Mermaid renderer | `dsh-better-markdown@0.1.2` (bundles Mermaid `11.16.1`) |
 | Harness SearXNG provider | `dsh-searxng@0.2.1` |
 | Public-page MCP server | `@j0hanz/fetch-url-mcp@1.13.0` |
+| Browser acceptance | Microsoft `@playwright/cli@0.1.18`; one shared Chromium installed by the pinned CLI during bootstrap |
 | GitHub MCP server | `ghcr.io/github/github-mcp-server:v1.11.0@sha256:48b071b92a297eb9b8ddb8dd87ccb4c75dbca6b0867eff034de4148722e0d164` |
 
 Image and model pins are deliberate. Update them only after testing; otherwise a

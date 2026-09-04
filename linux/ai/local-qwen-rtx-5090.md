@@ -2,8 +2,8 @@
 
 This is a manually started, single-GPU setup with one model endpoint
 (`127.0.0.1:30000`), DeepSeek Harness, private SearXNG, restricted page fetch,
-Mermaid rendering, and an isolated read-only GitHub work profile. It has no
-DeepSeek API dependency and no autostart.
+Mermaid rendering, Playwright browser acceptance, and an isolated read-only
+GitHub work profile. It has no DeepSeek API dependency and no autostart.
 
 The complete secret-free bundle is in
 [`examples/local-qwen-harness/`](../../examples/local-qwen-harness/).
@@ -105,8 +105,23 @@ The stack prefers maintained integrations:
 - `@j0hanz/fetch-url-mcp` provides restricted, read-only
   `mcp__fetch__fetch-url` with SSRF defenses and no JavaScript execution.
 - `dsh-better-markdown` renders Mermaid locally.
+- Microsoft `playwright-cli` gives both Harness profiles browser automation
+  through Bash. For browser-facing work, Harness must exercise the changed
+  behavior, check console errors, and report its verification before declaring
+  success. Existing project Playwright tests take priority.
 - the official GitHub MCP server serves the work profile read-only and in
   lockdown mode.
+
+The CLI is deliberately used instead of a custom browser plugin or Playwright
+MCP: it is Microsoft's recommended, lower-context option for coding agents.
+`./bootstrap.sh` installs one shared pinned Chromium in the stack cache. A Node
+script can import the installed `playwright` package for repeatable multi-step
+checks without modifying the target repository.
+
+Harness rc.2 cannot send the complete Qwen sampling tuple. Qwen3.8 recipes use
+model/server defaults where the backend supports them. NInfer's fixed presence
+penalty differs from Qwen's precise-coding recommendation, so sampler-sensitive
+comparisons must state that limitation.
 
 The earlier custom search/fetch MCP was removed. DeepSeek search stays
 disabled. Native search plus page-fetch execution was acceptance-tested in

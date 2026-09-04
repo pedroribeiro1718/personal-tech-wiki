@@ -234,9 +234,9 @@ reload_harnesses() {
 }
 
 harness() {
-  local action="$1" home unit url port workspace
-  if (( WORK_MODE )); then home="$WORK_DSH_DIR"; unit=local-qwen-harness-work.service; url=http://127.0.0.1:3081; workspace="${LOCAL_AI_WORKSPACE:-$PWD}"
-  else home="$DSH_DIR"; unit=local-qwen-harness.service; url=http://127.0.0.1:3080; workspace="$HOME"; fi
+  local action="$1" home unit url port workspace mode
+  if (( WORK_MODE )); then home="$WORK_DSH_DIR"; unit=local-qwen-harness-work.service; url=http://127.0.0.1:3081; workspace="${LOCAL_AI_WORKSPACE:-$PWD}"; mode=work
+  else home="$DSH_DIR"; unit=local-qwen-harness.service; url=http://127.0.0.1:3080; workspace="$HOME"; mode=personal; fi
   port="${url##*:}"
   if [[ "$action" == stop ]]; then
     systemctl --user is-active --quiet "$unit" && systemctl --user stop "$unit" || true
@@ -246,7 +246,7 @@ harness() {
   sync_from_api; systemctl --user reset-failed "$unit" >/dev/null 2>&1 || true
   systemd-run --user --quiet --collect --unit="$unit" --property=Type=exec \
     --property=KillMode=control-group --property=TimeoutStopSec=15 --working-directory="$workspace" \
-    --setenv="DSH_HOME=$home" --setenv="QWEN_LOCAL_API_KEY=${QWEN_LOCAL_API_KEY:-local-no-key}" \
+    --setenv="DSH_HOME=$home" --setenv="PATH=$home/profiles/web/node_modules/.bin:$PATH" --setenv="NODE_PATH=$home/profiles/web/node_modules" --setenv="PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/local-qwen-harness/playwright-browsers" --setenv="XDG_CACHE_HOME=/tmp/local-qwen-playwright-${mode}" --setenv="QWEN_LOCAL_API_KEY=${QWEN_LOCAL_API_KEY:-local-no-key}" \
     "$(command -v pnpm)" dlx "$DSH_PACKAGE" web --port "$port" --no-open
   wait_harness "$url" && { printf 'Harness ready: %s\n' "$url"; return; }
   journalctl --user -u "$unit" -n 40 --no-pager >&2 || true; return 1

@@ -43,6 +43,8 @@ install_profile() {
 
 install_profile "$PERSONAL" harness local-standard
 install_profile "$WORK" harness-work local-code-work
+PLAYWRIGHT_BROWSERS_PATH="$HOME/.cache/local-qwen-harness/playwright-browsers" \
+  pnpm --dir "$PERSONAL/profiles/web" exec playwright-cli install-browser chromium
 docker compose -f "$STACK/qwen-sglang-nvfp4-122880.compose.yaml" pull
 docker compose -f "$STACK/compose.yaml" pull
 docker pull "ghcr.io/github/github-mcp-server:v1.11.0@sha256:48b071b92a297eb9b8ddb8dd87ccb4c75dbca6b0867eff034de4148722e0d164"

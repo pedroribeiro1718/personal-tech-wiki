@@ -62,6 +62,8 @@ services:
       - fp8
       - --max-num-batched-tokens
       - "${QWEN_PREFILL_CHUNK:-2048}"
+      - --generation-config
+      - auto
       - --speculative-config
       - '{"method":"mtp","num_speculative_tokens":3}'
       - --mm-processor-kwargs
