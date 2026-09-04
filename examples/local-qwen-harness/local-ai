@@ -18,22 +18,22 @@ EXL3_DIR="${CACHE}/qwen38-exl3-${EXL3_REV:0:12}"
 UDQ4_DIR="${CACHE}/qwen38-udq4-4ca720788d1e"
 
 RECIPES=(sglang exl3 ninfer udq4 a3b)
-declare -A COMPOSE SERVICE CONTAINER MODEL NAME BASE SOURCE CONTEXT DESKTOP VISION ENGINE WEIGHTS KV SPEC REASON REQUIRED
+declare -A COMPOSE SERVICE CONTAINER MODEL NAME BASE SOURCE CONTEXT DESKTOP VISION ENGINE WEIGHTS KV SPEC REASON REQUIRED OUTPUT
 COMPOSE[sglang]="qwen-sglang-nvfp4-122880.compose.yaml"; SERVICE[sglang]=qwen; CONTAINER[sglang]=qwen38
 MODEL[sglang]=qwen3.8-27b-sglang-nvfp4-122880; NAME[sglang]="Qwen 3.8 27B · SGLang · NVFP4 · 122,880"
-BASE[sglang]=Qwen3.8-27B; SOURCE[sglang]=GitTensor; CONTEXT[sglang]=122880; DESKTOP[sglang]=122880; VISION[sglang]=1; ENGINE[sglang]=SGLang; WEIGHTS[sglang]=NVFP4; KV[sglang]=FP8; SPEC[sglang]=DSpark-7; REASON[sglang]=off/low/medium/xhigh; REQUIRED[sglang]=0
+BASE[sglang]=Qwen3.8-27B; SOURCE[sglang]=GitTensor; CONTEXT[sglang]=122880; DESKTOP[sglang]=122880; VISION[sglang]=1; ENGINE[sglang]=SGLang; WEIGHTS[sglang]=NVFP4; KV[sglang]=FP8; SPEC[sglang]=DSpark-7; REASON[sglang]=off/low/medium/xhigh; REQUIRED[sglang]=0; OUTPUT[sglang]=16384
 COMPOSE[exl3]="qwen-vllm-exl3-k5k6-262144.compose.yaml"; SERVICE[exl3]=qwen-full; CONTAINER[exl3]=qwen38-full
 MODEL[exl3]=qwen3.8-27b-vllm-exl3-k5k6-262144; NAME[exl3]="Qwen 3.8 27B · vLLM · EXL3 K5/K6 · 262,144"
-BASE[exl3]=Qwen3.8-27B; SOURCE[exl3]=malaiwah; CONTEXT[exl3]=262144; DESKTOP[exl3]=155648; VISION[exl3]=1; ENGINE[exl3]=vLLM; WEIGHTS[exl3]="EXL3 K5/K6"; KV[exl3]=FP8; SPEC[exl3]=MTP-3; REASON[exl3]=off/low/medium/xhigh; REQUIRED[exl3]=31140
+BASE[exl3]=Qwen3.8-27B; SOURCE[exl3]=malaiwah; CONTEXT[exl3]=262144; DESKTOP[exl3]=155648; VISION[exl3]=1; ENGINE[exl3]=vLLM; WEIGHTS[exl3]="EXL3 K5/K6"; KV[exl3]=FP8; SPEC[exl3]=MTP-3; REASON[exl3]=off/low/medium/xhigh; REQUIRED[exl3]=31140; OUTPUT[exl3]=32768
 COMPOSE[ninfer]="qwen-ninfer-nvfp4-252928.compose.yaml"; SERVICE[ninfer]=qwen-ninfer; CONTAINER[ninfer]=qwen38-ninfer
 MODEL[ninfer]=qwen3.8-27b-ninfer-nvfp4-252928; NAME[ninfer]="Qwen 3.8 27B · NInfer · NVFP4 · 252,928"
-BASE[ninfer]=Qwen3.8-27B; SOURCE[ninfer]=Neroued; CONTEXT[ninfer]=252928; DESKTOP[ninfer]=172032; VISION[ninfer]=0; ENGINE[ninfer]=NInfer; WEIGHTS[ninfer]=NVFP4; KV[ninfer]=INT8; SPEC[ninfer]=MTP-3; REASON[ninfer]=off/low/medium/xhigh; REQUIRED[ninfer]=31500
+BASE[ninfer]=Qwen3.8-27B; SOURCE[ninfer]=Neroued; CONTEXT[ninfer]=252928; DESKTOP[ninfer]=172032; VISION[ninfer]=0; ENGINE[ninfer]=NInfer; WEIGHTS[ninfer]=NVFP4; KV[ninfer]=INT8; SPEC[ninfer]=MTP-3; REASON[ninfer]=off/low/medium/xhigh; REQUIRED[ninfer]=31500; OUTPUT[ninfer]=32768
 COMPOSE[udq4]="qwen-llamacpp-ud-q4-k-xl-262144.compose.yaml"; SERVICE[udq4]=qwen-udq4; CONTAINER[udq4]=qwen38-udq4
 MODEL[udq4]=qwen3.8-27b-llamacpp-ud-q4-k-xl-262144; NAME[udq4]="Qwen 3.8 27B · llama.cpp · UD-Q4_K_XL · 262,144"
-BASE[udq4]=Qwen3.8-27B; SOURCE[udq4]=Unsloth; CONTEXT[udq4]=262144; DESKTOP[udq4]=196608; VISION[udq4]=1; ENGINE[udq4]=llama.cpp; WEIGHTS[udq4]=UD-Q4_K_XL; KV[udq4]=Q8_0; SPEC[udq4]=MTP-3; REASON[udq4]=off/low/medium/xhigh; REQUIRED[udq4]=28200
+BASE[udq4]=Qwen3.8-27B; SOURCE[udq4]=Unsloth; CONTEXT[udq4]=262144; DESKTOP[udq4]=196608; VISION[udq4]=1; ENGINE[udq4]=llama.cpp; WEIGHTS[udq4]=UD-Q4_K_XL; KV[udq4]=Q8_0; SPEC[udq4]=MTP-3; REASON[udq4]=off/low/medium/xhigh; REQUIRED[udq4]=28200; OUTPUT[udq4]=32768
 COMPOSE[a3b]="qwen-ninfer-groupwise-int-262144.compose.yaml"; SERVICE[a3b]=qwen-a3b; CONTAINER[a3b]=qwen36-a3b
 MODEL[a3b]=qwen3.6-35b-a3b-ninfer-groupwise-int-262144; NAME[a3b]="Qwen 3.6 35B-A3B · NInfer · groupwise-int · 262,144"
-BASE[a3b]=Qwen3.6-35B-A3B; SOURCE[a3b]=Neroued; CONTEXT[a3b]=262144; DESKTOP[a3b]=245760; VISION[a3b]=1; ENGINE[a3b]=NInfer; WEIGHTS[a3b]=groupwise-int; KV[a3b]=INT8; SPEC[a3b]=MTP-3; REASON[a3b]=default-only; REQUIRED[a3b]=29000
+BASE[a3b]=Qwen3.6-35B-A3B; SOURCE[a3b]=Neroued; CONTEXT[a3b]=262144; DESKTOP[a3b]=245760; VISION[a3b]=1; ENGINE[a3b]=NInfer; WEIGHTS[a3b]=groupwise-int; KV[a3b]=INT8; SPEC[a3b]=MTP-3; REASON[a3b]=default-only; REQUIRED[a3b]=29000; OUTPUT[a3b]=8192
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 running() { [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null || true)" == true ]]; }
@@ -205,7 +205,7 @@ sync_settings() {
 }
 
 sync_model() {
-  local recipe="$1" context="${2:-${CONTEXT[$1]}}" native=0 tiers=1 max_tokens=8192
+  local recipe="$1" context="${2:-${CONTEXT[$1]}}" native=0 tiers=1 max_tokens="${OUTPUT[$1]}"
   [[ "$recipe" == ninfer || "$recipe" == a3b ]] && native=1
   [[ "$recipe" == a3b ]] && tiers=0
   sync_settings "$DSH_DIR/settings.yaml" "${MODEL[$recipe]}" "${NAME[$recipe]}" "$context" "${VISION[$recipe]}" "$native" "$tiers" "$max_tokens"
@@ -214,7 +214,7 @@ sync_model() {
 
 sync_from_api() {
   local id context recipe
-  read -r id context < <(curl -fsS --max-time 2 "$API" | python3 -c 'import json,sys;m=json.load(sys.stdin)["data"][0];print(m["id"],m.get("max_model_len",""))' 2>/dev/null) || return 0
+  read -r id context < <(curl -fsS --max-time 2 "$API" | python3 -c 'import json,sys;m=json.load(sys.stdin)["data"][0];print(m["id"],m.get("max_model_len") or m.get("meta",{}).get("n_ctx",""))' 2>/dev/null) || return 0
   for recipe in "${RECIPES[@]}"; do [[ "$id" == "${MODEL[$recipe]}" ]] && { sync_model "$recipe" "$context"; return; }; done
 }
 
