@@ -43,16 +43,27 @@ session should be started after changing recipes. Harness retains the one
 last-used catalog entry while the endpoint is stopped because it requires a
 default model.
 
-| Recipe | Engine / quantization | KV | Normal | Desktop | Image | Reasoning |
-| --- | --- | --- | ---: | ---: | --- | --- |
-| `sglang` | SGLang NVFP4 | FP8 | 122,880 | 122,880 | yes | four levels |
-| `exl3` | vLLM EXL3 K5/K6 | FP8 | 262,144 | 155,648 | yes | four levels |
-| `ninfer` | NInfer NVFP4 | INT8 | 252,928 | 172,032 | no | four levels |
-| `udq4` | llama.cpp Unsloth UD-Q4_K_XL | Q8_0 | 262,144 | 196,608 | yes | four levels |
-| `a3b` | NInfer Qwen3.6 35B-A3B groupwise-int | INT8 | 262,144 | 245,760 | yes | default only |
+| Recipe | Base model | Engine | Quantization | Source | KV | Normal | Desktop | Image | Reasoning |
+| --- | --- | --- | --- | --- | --- | ---: | ---: | --- | --- |
+| `sglang` | Qwen3.8-27B | SGLang | NVFP4 | GitTensor | FP8 | 122,880 | 122,880 | yes | four levels |
+| `exl3` | Qwen3.8-27B | vLLM | EXL3 K5/K6 | malaiwah | FP8 | 262,144 | 155,648 | yes | four levels |
+| `ninfer` | Qwen3.8-27B | NInfer | NVFP4 | Neroued | INT8 | 252,928 | 172,032 | no | four levels |
+| `udq4` | Qwen3.8-27B | llama.cpp | UD-Q4_K_XL | Unsloth | Q8_0 | 262,144 | 196,608 | yes | four levels |
+| `a3b` | Qwen3.6-35B-A3B | NInfer | groupwise-int | Neroued | INT8 | 262,144 | 245,760 | yes | default only |
 
 `local-ai prepare NAME` downloads/builds a recipe without starting it and
 verifies pinned artifact sizes and hashes.
+
+Model files are not stored in Git. NInfer/A3B artifacts, Unsloth GGUFs, NInfer
+source, and EXL3 overlays use `~/.cache/local-qwen-harness/`. Container-side
+Hugging Face downloads use Docker volumes `qwen38-hf-cache` (SGLang) and
+`qwen38-full-hf-cache` (vLLM/EXL3). Inspect them with:
+
+```bash
+du -sh ~/.cache/local-qwen-harness
+docker system df -v
+docker volume inspect qwen38-hf-cache qwen38-full-hf-cache
+```
 
 Measured with KDE and a lightly loaded Zen browser:
 

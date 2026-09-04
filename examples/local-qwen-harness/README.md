@@ -50,13 +50,13 @@ stopped.
 
 ## Recipes
 
-| Name | Engine / weights | KV | Normal context | Desktop context | Vision | Reasoning | Draft |
-| --- | --- | --- | ---: | ---: | --- | --- | --- |
-| `sglang` | SGLang / NVFP4 | FP8 | 122,880 | 122,880 | yes | four levels | DSpark-7 |
-| `exl3` | vLLM / EXL3 K5/K6 | FP8 | 262,144 | 155,648 | yes | four levels | MTP-3 |
-| `ninfer` | NInfer / NVFP4 | INT8 | 252,928 | 172,032 | no | four levels | MTP-3 |
-| `udq4` | llama.cpp / Unsloth UD-Q4_K_XL | Q8_0 | 262,144 | 196,608 | yes | four levels | MTP-3 |
-| `a3b` | NInfer / Qwen3.6 35B-A3B groupwise-int | INT8 | 262,144 | 245,760 | yes | default only | MTP-3 |
+| Name | Base model | Engine | Quantization | Artifact source | KV | Normal context | Desktop context | Vision | Reasoning | Draft |
+| --- | --- | --- | --- | --- | --- | ---: | ---: | --- | --- | --- |
+| `sglang` | Qwen3.8-27B | SGLang | NVFP4 | GitTensor | FP8 | 122,880 | 122,880 | yes | four levels | DSpark-7 |
+| `exl3` | Qwen3.8-27B | vLLM | EXL3 K5/K6 | malaiwah | FP8 | 262,144 | 155,648 | yes | four levels | MTP-3 |
+| `ninfer` | Qwen3.8-27B | NInfer | NVFP4 | Neroued | INT8 | 252,928 | 172,032 | no | four levels | MTP-3 |
+| `udq4` | Qwen3.8-27B | llama.cpp | UD-Q4_K_XL | Unsloth | Q8_0 | 262,144 | 196,608 | yes | four levels | MTP-3 |
+| `a3b` | Qwen3.6-35B-A3B | NInfer | groupwise-int | Neroued | INT8 | 262,144 | 245,760 | yes | default only | MTP-3 |
 
 Use `local-ai prepare NAME` to fetch/build a recipe without starting it.
 Preparation is resumable and verifies pinned artifact sizes and SHA-256 hashes.
@@ -83,6 +83,23 @@ with materially better headroom.
 Canonical served IDs include model, engine, quantization, and normal context;
 `local-ai recipes` prints them. Compose files contain every inference flag and
 [`VERSIONS.md`](VERSIONS.md) records immutable sources.
+
+## Model cache locations
+
+Downloaded NInfer/A3B artifacts, Unsloth GGUFs, NInfer source, and the small
+EXL3 runtime overlays live in `~/.cache/local-qwen-harness/`. Hugging Face
+weights downloaded inside the SGLang and vLLM containers live in Docker named
+volumes `qwen38-hf-cache` and `qwen38-full-hf-cache` respectively. Inspect them
+without assuming Docker's distro-specific storage path:
+
+```bash
+du -sh ~/.cache/local-qwen-harness ~/.cache/local-qwen-harness/*
+docker system df -v
+docker volume inspect qwen38-hf-cache qwen38-full-hf-cache
+```
+
+Model data is deliberately excluded from Git and is recreated by
+`local-ai prepare RECIPE` or the first corresponding start.
 
 ## Reasoning levels
 
