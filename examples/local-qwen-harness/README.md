@@ -140,6 +140,9 @@ MCP tool schemas; Harness can discover its commands with `playwright-cli
 `~/.cache/local-qwen-harness/playwright-browsers`. Projects that already contain
 Playwright tests keep using their own suite; repeatable ad-hoc checks can import
 the installed `playwright` package from Node without another project install.
+Because Harness isolates Bash calls, a CLI browser is opened, inspected, and
+closed in one call. Agents must validate locator uniqueness and behavior, never
+invoke `npx`, and remove unrequested inspection artifacts.
 
 ## Sampling defaults
 

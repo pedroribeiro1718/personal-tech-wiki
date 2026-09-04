@@ -116,7 +116,10 @@ The CLI is deliberately used instead of a custom browser plugin or Playwright
 MCP: it is Microsoft's recommended, lower-context option for coding agents.
 `./bootstrap.sh` installs one shared pinned Chromium in the stack cache. A Node
 script can import the installed `playwright` package for repeatable multi-step
-checks without modifying the target repository.
+checks without modifying the target repository. Harness Bash calls do not keep
+CLI browsers alive, so one-shot CLI work must open, inspect, and close in the
+same call. Agents validate that proposed locators are unique and functional,
+avoid `npx`, and remove unrequested inspection artifacts.
 
 Harness rc.2 cannot send the complete Qwen sampling tuple, so sampling is
 owned by each model server. Qwen3.8 uses its official mode-aware defaults. The

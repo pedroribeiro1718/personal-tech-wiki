@@ -22,6 +22,10 @@ rg -q 'reasoningEfforts:' "$ROOT/bootstrap/harness/settings.yaml"
 rg -q 'thinkingFormat: chat-template' "$ROOT/local-ai"
 rg -q '"@playwright/cli": "0.1.18"' "$ROOT/bootstrap/harness/package.json"
 rg -q 'playwright-cli' "$ROOT/bootstrap/harness-work/agent-presets/local-code-work/agent.cordis.yml"
+for preset in "$ROOT/bootstrap/harness/agent-presets/local-standard/agent.cordis.yml" \
+  "$ROOT/bootstrap/harness-work/agent-presets/local-code-work/agent.cordis.yml"; do
+  rg -q 'Never use npx' "$preset"
+done
 rg -q -- '--sampling-defaults' "$ROOT/qwen-sglang-nvfp4-122880.compose.yaml"
 rg -q -- '--generation-config' "$ROOT/qwen-vllm-exl3-k5k6-262144.compose.yaml"
 rg -q -- '--presence-penalty' "$ROOT/qwen-llamacpp-ud-q4-k-xl-262144.compose.yaml"

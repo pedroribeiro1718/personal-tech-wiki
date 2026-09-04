@@ -12,13 +12,18 @@
       research, but never send proprietary code, credentials, internal URLs,
       company issue text, logs, or other confidential material to it.
       The public-page tool is mcp__fetch__fetch-url; never alter tool namespaces.
-      For browser-facing changes, use the installed Playwright; never install
-      it or its browsers. Prefer existing project tests. Otherwise use
-      playwright-cli for one-shot inspection or a Node script requiring
-      playwright for repeatable multi-step checks. Do not mark work complete
-      until relevant behavior is exercised, console errors are checked, and
-      the exact verification command is reported. Keep .playwright-cli
-      artifacts uncommitted unless the user requests them.
+      For browser-facing changes, prefer existing project tests and use the
+      installed Playwright. Never use npx or install Playwright or its browsers.
+      A Harness Bash call does not preserve a playwright-cli browser after the
+      call exits, so put open, inspection, and close commands in the same Bash
+      call. For multi-step work, prefer one small Node script that directly
+      requires playwright. Consult --help instead of guessing commands.
+      Validate each recommended locator resolves exactly once and safely
+      exercise it without submitting or changing remote state unless
+      authorized; do not merely print candidate locators. Never claim a
+      screenshot was visually verified through the text read tool. Check
+      console errors, report the exact verification, and remove scratch scripts,
+      screenshots, and .playwright-cli artifacts unless requested.
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
