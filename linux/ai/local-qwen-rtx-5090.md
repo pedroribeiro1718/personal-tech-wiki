@@ -130,12 +130,14 @@ temperature `0.6`, top-p `0.95`, top-k `20`, min-p `0`, and zero presence and
 frequency penalties. Harness leaves temperature unset, so it does not override
 the backend. No custom sampling adapter is required.
 
-Response caps are recipe-specific: 16,384 tokens for SGLang, 32,768 for the
-long-context Qwen3.8 recipes, and 8,192 for A3B. Compaction thresholds are 80%
+Response caps are recipe-specific: 16,384 tokens for SGLang and A3B, and
+32,768 for the long-context Qwen3.8 recipes. Compaction thresholds are 80%
 for SGLang, 70% for EXL3, 75% for Qwen3.8 NInfer/UDQ4, and 65% for A3B. After
 a repetitive response, start a fresh session. For deterministic Gherkin table
 alignment, pin `@cucumber/gherkin-utils` in the test repository and run its
 `format` command instead of asking the model to align whitespace.
+An output-limit warning is separate from history compaction: send `continue`
+to resume a capped reply, while `/compact` condenses history on demand.
 
 The earlier custom search/fetch MCP was removed. DeepSeek search stays
 disabled. Native search plus page-fetch execution was acceptance-tested in

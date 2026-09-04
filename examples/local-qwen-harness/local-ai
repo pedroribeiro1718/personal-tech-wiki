@@ -33,7 +33,7 @@ MODEL[udq4]=qwen3.8-27b-llamacpp-ud-q4-k-xl-262144; NAME[udq4]="Qwen 3.8 27B · 
 BASE[udq4]=Qwen3.8-27B; SOURCE[udq4]=Unsloth; CONTEXT[udq4]=262144; DESKTOP[udq4]=196608; VISION[udq4]=1; ENGINE[udq4]=llama.cpp; WEIGHTS[udq4]=UD-Q4_K_XL; KV[udq4]=Q8_0; SPEC[udq4]=MTP-3; REASON[udq4]=off/low/medium/xhigh; REQUIRED[udq4]=28200; OUTPUT[udq4]=32768
 COMPOSE[a3b]="qwen-ninfer-groupwise-int-262144.compose.yaml"; SERVICE[a3b]=qwen-a3b; CONTAINER[a3b]=qwen36-a3b
 MODEL[a3b]=qwen3.6-35b-a3b-ninfer-groupwise-int-262144; NAME[a3b]="Qwen 3.6 35B-A3B · NInfer · groupwise-int · 262,144"
-BASE[a3b]=Qwen3.6-35B-A3B; SOURCE[a3b]=Neroued; CONTEXT[a3b]=262144; DESKTOP[a3b]=245760; VISION[a3b]=1; ENGINE[a3b]=NInfer; WEIGHTS[a3b]=groupwise-int; KV[a3b]=INT8; SPEC[a3b]=MTP-3; REASON[a3b]=default-only; REQUIRED[a3b]=29000; OUTPUT[a3b]=8192
+BASE[a3b]=Qwen3.6-35B-A3B; SOURCE[a3b]=Neroued; CONTEXT[a3b]=262144; DESKTOP[a3b]=245760; VISION[a3b]=1; ENGINE[a3b]=NInfer; WEIGHTS[a3b]=groupwise-int; KV[a3b]=INT8; SPEC[a3b]=MTP-3; REASON[a3b]=default-only; REQUIRED[a3b]=29000; OUTPUT[a3b]=16384
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 running() { [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null || true)" == true ]]; }
