@@ -148,10 +148,11 @@ contract cannot send `top_p`, `top_k`, `min_p`, or penalties. The Qwen3.8
 SGLang/vLLM recipes therefore explicitly load the model's generation config;
 the llama.cpp recipe pins Qwen3.8's thinking defaults (`1.0`, `0.95`, `20`,
 `0`, presence `0`, repetition `1`) at the server. Client-supplied values still
-win. NInfer has fixed server defaults (`0.6`, `0.95`, `20`, `0`, presence `1`),
-so its `ninfer` and `a3b` recipes cannot exactly track every Qwen mode through
-this Harness release. Do not compare sampler-sensitive quality without noting
-that limitation.
+win. The pinned NInfer release selects Qwen3.8's official defaults from the
+resolved thinking mode. The `a3b` recipe instead pins Qwen3.6-35B-A3B's
+precise-coding profile (`0.6`, `0.95`, `20`, `0`, presence/frequency `0`) with
+NInfer's supported process flags. Harness leaves temperature unset by default,
+so these backend values remain effective. No sampling adapter is needed.
 
 The old custom search/fetch adapter was removed. The generic Harness `web`
 plugin may still expose a `web_search` schema, but `dsh-searxng` is its

@@ -118,10 +118,12 @@ MCP: it is Microsoft's recommended, lower-context option for coding agents.
 script can import the installed `playwright` package for repeatable multi-step
 checks without modifying the target repository.
 
-Harness rc.2 cannot send the complete Qwen sampling tuple. Qwen3.8 recipes use
-model/server defaults where the backend supports them. NInfer's fixed presence
-penalty differs from Qwen's precise-coding recommendation, so sampler-sensitive
-comparisons must state that limitation.
+Harness rc.2 cannot send the complete Qwen sampling tuple, so sampling is
+owned by each model server. Qwen3.8 uses its official mode-aware defaults. The
+NInfer A3B recipe explicitly pins Qwen3.6-35B-A3B's precise-coding profile:
+temperature `0.6`, top-p `0.95`, top-k `20`, min-p `0`, and zero presence and
+frequency penalties. Harness leaves temperature unset, so it does not override
+the backend. No custom sampling adapter is required.
 
 The earlier custom search/fetch MCP was removed. DeepSeek search stays
 disabled. Native search plus page-fetch execution was acceptance-tested in

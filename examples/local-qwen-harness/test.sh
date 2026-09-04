@@ -25,5 +25,7 @@ rg -q 'playwright-cli' "$ROOT/bootstrap/harness-work/agent-presets/local-code-wo
 rg -q -- '--sampling-defaults' "$ROOT/qwen-sglang-nvfp4-122880.compose.yaml"
 rg -q -- '--generation-config' "$ROOT/qwen-vllm-exl3-k5k6-262144.compose.yaml"
 rg -q -- '--presence-penalty' "$ROOT/qwen-llamacpp-ud-q4-k-xl-262144.compose.yaml"
+rg -q -- '--temperature' "$ROOT/qwen-ninfer-groupwise-int-262144.compose.yaml"
+rg -q -- '--presence-penalty' "$ROOT/qwen-ninfer-groupwise-int-262144.compose.yaml"
 "$ROOT/local-ai" recipes | awk '/^[+|]/{if(length != 81) exit 1}'
 printf 'OK: syntax, Compose, integration pins, and code budget (%s/1800).\n' "$lines"
