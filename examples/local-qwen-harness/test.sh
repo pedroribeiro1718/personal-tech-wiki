@@ -18,4 +18,6 @@ for file in "$ROOT"/qwen-*.compose.yaml; do
 done
 rg -q 'dsh-searxng' "$ROOT/bootstrap/harness/package.json"
 rg -q '@j0hanz/fetch-url-mcp' "$ROOT/bootstrap/harness/package.json"
+rg -q 'reasoningEfforts:' "$ROOT/bootstrap/harness/settings.yaml"
+rg -q 'thinkingFormat: chat-template' "$ROOT/local-ai"
 printf 'OK: syntax, Compose, integration pins, and code budget (%s/1800).\n' "$lines"

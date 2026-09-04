@@ -43,13 +43,13 @@ session should be started after changing recipes. Harness retains the one
 last-used catalog entry while the endpoint is stopped because it requires a
 default model.
 
-| Recipe | Engine / quantization | KV | Normal | Desktop | Image |
-| --- | --- | --- | ---: | ---: | --- |
-| `sglang` | SGLang NVFP4 | FP8 | 122,880 | 122,880 | yes |
-| `exl3` | vLLM EXL3 K5/K6 | FP8 | 262,144 | 155,648 | yes |
-| `ninfer` | NInfer NVFP4 | INT8 | 252,928 | 172,032 | no |
-| `udq4` | llama.cpp Unsloth UD-Q4_K_XL | Q8_0 | 262,144 | 196,608 | yes |
-| `a3b` | NInfer Qwen3.6 35B-A3B groupwise-int | INT8 | 262,144 | 245,760 | yes |
+| Recipe | Engine / quantization | KV | Normal | Desktop | Image | Reasoning |
+| --- | --- | --- | ---: | ---: | --- | --- |
+| `sglang` | SGLang NVFP4 | FP8 | 122,880 | 122,880 | yes | four levels |
+| `exl3` | vLLM EXL3 K5/K6 | FP8 | 262,144 | 155,648 | yes | four levels |
+| `ninfer` | NInfer NVFP4 | INT8 | 252,928 | 172,032 | no | four levels |
+| `udq4` | llama.cpp Unsloth UD-Q4_K_XL | Q8_0 | 262,144 | 196,608 | yes | four levels |
+| `a3b` | NInfer Qwen3.6 35B-A3B groupwise-int | INT8 | 262,144 | 245,760 | yes | default only |
 
 `local-ai prepare NAME` downloads/builds a recipe without starting it and
 verifies pinned artifact sizes and hashes.
@@ -71,6 +71,18 @@ At full context, `udq4` puts only the 888-MiB BF16 vision projector in system
 RAM. Text precision/speed are retained, but large images preprocess slowly.
 Its 196K desktop mode keeps the projector on GPU. For full context plus routine
 vision, `a3b` is the better-balanced option.
+
+## Reasoning controls
+
+The Qwen 3.8 recipes expose `Off`, `Low`, `Medium`, and `Xhigh` in Harness's
+model menu (`Xhigh` is the model default). NInfer uses its native
+`reasoning_effort`; SGLang, vLLM, and llama.cpp use Qwen chat-template
+arguments. Begin a new session after switching recipes, and choose its level
+before sending the first message.
+
+Qwen3.6 35B-A3B still reasons by default, but its embedded template rejects
+graded levels, so that recipe deliberately has no level picker. Switching to
+it clears any saved Qwen 3.8 level instead of presenting a control that fails.
 
 ## Search, pages, diagrams, and GitHub
 

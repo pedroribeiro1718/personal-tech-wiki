@@ -18,22 +18,22 @@ EXL3_DIR="${CACHE}/qwen38-exl3-${EXL3_REV:0:12}"
 UDQ4_DIR="${CACHE}/qwen38-udq4-4ca720788d1e"
 
 RECIPES=(sglang exl3 ninfer udq4 a3b)
-declare -A COMPOSE SERVICE CONTAINER MODEL NAME CONTEXT DESKTOP VISION ENGINE WEIGHTS KV SPEC REQUIRED
+declare -A COMPOSE SERVICE CONTAINER MODEL NAME CONTEXT DESKTOP VISION ENGINE WEIGHTS KV SPEC REASON REQUIRED
 COMPOSE[sglang]="qwen-sglang-nvfp4-122880.compose.yaml"; SERVICE[sglang]=qwen; CONTAINER[sglang]=qwen38
 MODEL[sglang]=qwen3.8-27b-sglang-nvfp4-122880; NAME[sglang]="Qwen 3.8 27B · SGLang · NVFP4 · 122,880"
-CONTEXT[sglang]=122880; DESKTOP[sglang]=122880; VISION[sglang]=1; ENGINE[sglang]=SGLang; WEIGHTS[sglang]=NVFP4; KV[sglang]=FP8; SPEC[sglang]=DSpark-7; REQUIRED[sglang]=0
+CONTEXT[sglang]=122880; DESKTOP[sglang]=122880; VISION[sglang]=1; ENGINE[sglang]=SGLang; WEIGHTS[sglang]=NVFP4; KV[sglang]=FP8; SPEC[sglang]=DSpark-7; REASON[sglang]=off/low/medium/xhigh; REQUIRED[sglang]=0
 COMPOSE[exl3]="qwen-vllm-exl3-k5k6-262144.compose.yaml"; SERVICE[exl3]=qwen-full; CONTAINER[exl3]=qwen38-full
 MODEL[exl3]=qwen3.8-27b-vllm-exl3-k5k6-262144; NAME[exl3]="Qwen 3.8 27B · vLLM · EXL3 K5/K6 · 262,144"
-CONTEXT[exl3]=262144; DESKTOP[exl3]=155648; VISION[exl3]=1; ENGINE[exl3]=vLLM; WEIGHTS[exl3]="EXL3 K5/K6"; KV[exl3]=FP8; SPEC[exl3]=MTP-3; REQUIRED[exl3]=31140
+CONTEXT[exl3]=262144; DESKTOP[exl3]=155648; VISION[exl3]=1; ENGINE[exl3]=vLLM; WEIGHTS[exl3]="EXL3 K5/K6"; KV[exl3]=FP8; SPEC[exl3]=MTP-3; REASON[exl3]=off/low/medium/xhigh; REQUIRED[exl3]=31140
 COMPOSE[ninfer]="qwen-ninfer-nvfp4-252928.compose.yaml"; SERVICE[ninfer]=qwen-ninfer; CONTAINER[ninfer]=qwen38-ninfer
 MODEL[ninfer]=qwen3.8-27b-ninfer-nvfp4-252928; NAME[ninfer]="Qwen 3.8 27B · NInfer · NVFP4 · 252,928"
-CONTEXT[ninfer]=252928; DESKTOP[ninfer]=172032; VISION[ninfer]=0; ENGINE[ninfer]=NInfer; WEIGHTS[ninfer]=NVFP4; KV[ninfer]=INT8; SPEC[ninfer]=MTP-3; REQUIRED[ninfer]=31500
+CONTEXT[ninfer]=252928; DESKTOP[ninfer]=172032; VISION[ninfer]=0; ENGINE[ninfer]=NInfer; WEIGHTS[ninfer]=NVFP4; KV[ninfer]=INT8; SPEC[ninfer]=MTP-3; REASON[ninfer]=off/low/medium/xhigh; REQUIRED[ninfer]=31500
 COMPOSE[udq4]="qwen-llamacpp-ud-q4-k-xl-262144.compose.yaml"; SERVICE[udq4]=qwen-udq4; CONTAINER[udq4]=qwen38-udq4
 MODEL[udq4]=qwen3.8-27b-llamacpp-ud-q4-k-xl-262144; NAME[udq4]="Qwen 3.8 27B · llama.cpp · UD-Q4_K_XL · 262,144"
-CONTEXT[udq4]=262144; DESKTOP[udq4]=196608; VISION[udq4]=1; ENGINE[udq4]=llama.cpp; WEIGHTS[udq4]=UD-Q4_K_XL; KV[udq4]=Q8_0; SPEC[udq4]=MTP-3; REQUIRED[udq4]=28200
+CONTEXT[udq4]=262144; DESKTOP[udq4]=196608; VISION[udq4]=1; ENGINE[udq4]=llama.cpp; WEIGHTS[udq4]=UD-Q4_K_XL; KV[udq4]=Q8_0; SPEC[udq4]=MTP-3; REASON[udq4]=off/low/medium/xhigh; REQUIRED[udq4]=28200
 COMPOSE[a3b]="qwen-ninfer-groupwise-int-262144.compose.yaml"; SERVICE[a3b]=qwen-a3b; CONTAINER[a3b]=qwen36-a3b
 MODEL[a3b]=qwen3.6-35b-a3b-ninfer-groupwise-int-262144; NAME[a3b]="Qwen 3.6 35B-A3B · NInfer · groupwise-int · 262,144"
-CONTEXT[a3b]=262144; DESKTOP[a3b]=245760; VISION[a3b]=1; ENGINE[a3b]=NInfer; WEIGHTS[a3b]=groupwise-int; KV[a3b]=INT8; SPEC[a3b]=MTP-3; REQUIRED[a3b]=29000
+CONTEXT[a3b]=262144; DESKTOP[a3b]=245760; VISION[a3b]=1; ENGINE[a3b]=NInfer; WEIGHTS[a3b]=groupwise-int; KV[a3b]=INT8; SPEC[a3b]=MTP-3; REASON[a3b]=default-only; REQUIRED[a3b]=29000
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 running() { [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null || true)" == true ]]; }
@@ -177,27 +177,38 @@ start_model() {
 }
 
 sync_settings() {
-  local file="$1" id="$2" name="$3" context="$4" vision="$5" tmp
+  local file="$1" id="$2" name="$3" context="$4" vision="$5" native="$6" tiers="$7" tmp
   [[ -f "$file" ]] || return
   tmp="$(mktemp "$file.local-ai.XXXXXX")"
-  awk -v id="$id" -v name="$name" -v context="$context" -v vision="$vision" '
+  awk -v id="$id" -v name="$name" -v context="$context" -v vision="$vision" -v native="$native" -v tiers="$tiers" '
     function model(){print "      models:"; print "        - id: " id; print "          name: " name;
       print "          contextWindow: " context; print "          input:"; print "            - text";
-      if(vision) print "            - image"}
+      if(vision) print "            - image";
+      if(tiers){print "          reasoningEfforts:"; print "            off: " (native ? "none" : "");
+        print "            low: low"; print "            medium: medium"; print "            xhigh: xhigh";
+        print "          compat:"; print "            supportsDeveloperRole: false";
+      if(native){print "            supportsReasoningEffort: true"; print "            thinkingFormat: openai"}
+      else{print "            thinkingFormat: chat-template"; print "            chatTemplateKwargs:";
+        print "              enable_thinking: {\"$var\": thinking.enabled}";
+        print "              reasoning_effort: {\"$var\": thinking.effort, omitWhenOff: true}";
+        print "              preserve_thinking: true"}}}
     {s=$0; sub(/^[[:space:]]*/, "", s)
      if(!done && $0=="      models:"){model(); done=1; skip=1; next}
      if(skip){if($0=="agent-default-model:"){skip=0; def=1; print}; next}
      if($0=="agent-default-model:") def=1
-     if(def && s~/^model:[[:space:]]*/){match($0,/^[[:space:]]*/); print substr($0,1,RLENGTH) "model: " id; set=1; def=0; next}
+     if(def && s~/^model:[[:space:]]*/){match($0,/^[[:space:]]*/); print substr($0,1,RLENGTH) "model: " id; set=1; next}
+     if(def && !tiers && s~/^reasoningEffort:[[:space:]]*/) next
      print} END{if(done!=1 || set!=1) exit 42}' "$file" >"$tmp" ||
     { rm -f "$tmp"; die "Could not update $file; run ./bootstrap.sh"; }
   chmod --reference="$file" "$tmp" 2>/dev/null || chmod 600 "$tmp"; mv "$tmp" "$file"
 }
 
 sync_model() {
-  local recipe="$1" context="${2:-${CONTEXT[$1]}}"
-  sync_settings "$DSH_DIR/settings.yaml" "${MODEL[$recipe]}" "${NAME[$recipe]}" "$context" "${VISION[$recipe]}"
-  sync_settings "$WORK_DSH_DIR/settings.yaml" "${MODEL[$recipe]}" "${NAME[$recipe]}" "$context" "${VISION[$recipe]}"
+  local recipe="$1" context="${2:-${CONTEXT[$1]}}" native=0 tiers=1
+  [[ "$recipe" == ninfer || "$recipe" == a3b ]] && native=1
+  [[ "$recipe" == a3b ]] && tiers=0
+  sync_settings "$DSH_DIR/settings.yaml" "${MODEL[$recipe]}" "${NAME[$recipe]}" "$context" "${VISION[$recipe]}" "$native" "$tiers"
+  sync_settings "$WORK_DSH_DIR/settings.yaml" "${MODEL[$recipe]}" "${NAME[$recipe]}" "$context" "${VISION[$recipe]}" "$native" "$tiers"
 }
 
 sync_from_api() {
@@ -271,11 +282,11 @@ logs() {
 }
 
 show_recipes() {
-  printf '%-8s %-10s %-18s %-6s %10s %10s %-6s %s\n' RECIPE ENGINE WEIGHTS KV MAX DESKTOP VISION SPEC
+  printf '%-8s %-10s %-18s %-6s %10s %10s %-6s %-23s %s\n' RECIPE ENGINE WEIGHTS KV MAX DESKTOP VISION REASONING SPEC
   local r; for r in "${RECIPES[@]}"; do
-    printf '%-8s %-10s %-18s %-6s %10s %10s %-6s %s\n' "$r$([[ $r == sglang ]] && echo '*')" \
+    printf '%-8s %-10s %-18s %-6s %10s %10s %-6s %-23s %s\n' "$r$([[ $r == sglang ]] && echo '*')" \
       "${ENGINE[$r]}" "${WEIGHTS[$r]}" "${KV[$r]}" "${CONTEXT[$r]}" "${DESKTOP[$r]}" \
-      "$([[ ${VISION[$r]} == 1 ]] && echo yes || echo no)" "${SPEC[$r]}"
+      "$([[ ${VISION[$r]} == 1 ]] && echo yes || echo no)" "${REASON[$r]}" "${SPEC[$r]}"
   done
   printf '\nAll recipes use http://127.0.0.1:30000/v1; * is the default.\n'
 }

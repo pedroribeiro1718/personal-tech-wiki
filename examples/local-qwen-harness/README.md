@@ -50,13 +50,13 @@ stopped.
 
 ## Recipes
 
-| Name | Engine / weights | KV | Normal context | Desktop context | Vision | Draft |
-| --- | --- | --- | ---: | ---: | --- | --- |
-| `sglang` | SGLang / NVFP4 | FP8 | 122,880 | 122,880 | yes | DSpark-7 |
-| `exl3` | vLLM / EXL3 K5/K6 | FP8 | 262,144 | 155,648 | yes | MTP-3 |
-| `ninfer` | NInfer / NVFP4 | INT8 | 252,928 | 172,032 | no | MTP-3 |
-| `udq4` | llama.cpp / Unsloth UD-Q4_K_XL | Q8_0 | 262,144 | 196,608 | yes | MTP-3 |
-| `a3b` | NInfer / Qwen3.6 35B-A3B groupwise-int | INT8 | 262,144 | 245,760 | yes | MTP-3 |
+| Name | Engine / weights | KV | Normal context | Desktop context | Vision | Reasoning | Draft |
+| --- | --- | --- | ---: | ---: | --- | --- | --- |
+| `sglang` | SGLang / NVFP4 | FP8 | 122,880 | 122,880 | yes | four levels | DSpark-7 |
+| `exl3` | vLLM / EXL3 K5/K6 | FP8 | 262,144 | 155,648 | yes | four levels | MTP-3 |
+| `ninfer` | NInfer / NVFP4 | INT8 | 252,928 | 172,032 | no | four levels | MTP-3 |
+| `udq4` | llama.cpp / Unsloth UD-Q4_K_XL | Q8_0 | 262,144 | 196,608 | yes | four levels | MTP-3 |
+| `a3b` | NInfer / Qwen3.6 35B-A3B groupwise-int | INT8 | 262,144 | 245,760 | yes | default only | MTP-3 |
 
 Use `local-ai prepare NAME` to fetch/build a recipe without starting it.
 Preparation is resumable and verifies pinned artifact sizes and SHA-256 hashes.
@@ -83,6 +83,19 @@ with materially better headroom.
 Canonical served IDs include model, engine, quantization, and normal context;
 `local-ai recipes` prints them. Compose files contain every inference flag and
 [`VERSIONS.md`](VERSIONS.md) records immutable sources.
+
+## Reasoning levels
+
+Qwen 3.8 recipes expose `Off`, `Low`, `Medium`, and `Xhigh` in Harness's model
+menu. NInfer receives its native `reasoning_effort`; SGLang, vLLM, and
+llama.cpp receive the equivalent Qwen chat-template arguments. `Xhigh` is the
+Qwen 3.8 default. The selected level is saved by Harness for later sessions.
+
+The Qwen3.6 35B-A3B artifact can reason by default, but its embedded template
+rejects graded levels. Its recipe therefore does not advertise a broken level
+picker. Starting it also clears any saved Qwen 3.8 level from the Harness
+default. Start a fresh session after switching recipes, and choose the desired
+level before its first message.
 
 ## Harness tools
 
