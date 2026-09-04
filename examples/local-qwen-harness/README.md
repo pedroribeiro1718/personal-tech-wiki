@@ -157,6 +157,17 @@ precise-coding profile (`0.6`, `0.95`, `20`, `0`, presence/frequency `0`) with
 NInfer's supported process flags. Harness leaves temperature unset by default,
 so these backend values remain effective. No sampling adapter is needed.
 
+Harness caps every response at 8,192 tokens, matching Qwen Code's normal first
+request budget. Qwen3.8 keeps Harness's built-in 80% compaction threshold: even
+the 122,880-token SGLang profile retains 16,384 tokens beyond threshold plus
+the response cap. A3B compacts earlier, at 65%, because its smaller active
+model showed degeneration in a long session. Start a fresh session after a
+degenerate response rather than continuing its polluted history.
+
+For Gherkin, use Cucumber's formatter instead of asking the model to align wide
+Examples tables: add `@cucumber/gherkin-utils` as a pinned dev dependency and
+run `gherkin-utils format features/file.feature` (or a package script).
+
 The old custom search/fetch adapter was removed. The generic Harness `web`
 plugin may still expose a `web_search` schema, but `dsh-searxng` is its
 registered provider; `web-search-deepseek` stays disabled.

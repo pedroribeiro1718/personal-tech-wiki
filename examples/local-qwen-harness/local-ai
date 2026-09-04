@@ -177,12 +177,13 @@ start_model() {
 }
 
 sync_settings() {
-  local file="$1" id="$2" name="$3" context="$4" vision="$5" native="$6" tiers="$7" tmp
+  local file="$1" id="$2" name="$3" context="$4" vision="$5" native="$6" tiers="$7" max_tokens="$8" tmp
   [[ -f "$file" ]] || return
   tmp="$(mktemp "$file.local-ai.XXXXXX")"
-  awk -v id="$id" -v name="$name" -v context="$context" -v vision="$vision" -v native="$native" -v tiers="$tiers" '
+  awk -v id="$id" -v name="$name" -v context="$context" -v vision="$vision" -v native="$native" -v tiers="$tiers" -v max_tokens="$max_tokens" '
     function model(){print "      models:"; print "        - id: " id; print "          name: " name;
-      print "          contextWindow: " context; print "          input:"; print "            - text";
+      print "          contextWindow: " context; if(max_tokens) print "          maxTokens: " max_tokens;
+      print "          input:"; print "            - text";
       if(vision) print "            - image";
       if(tiers){print "          reasoningEfforts:"; print "            off: " (native ? "none" : "");
         print "            low: low"; print "            medium: medium"; print "            xhigh: xhigh";
@@ -204,11 +205,11 @@ sync_settings() {
 }
 
 sync_model() {
-  local recipe="$1" context="${2:-${CONTEXT[$1]}}" native=0 tiers=1
+  local recipe="$1" context="${2:-${CONTEXT[$1]}}" native=0 tiers=1 max_tokens=8192
   [[ "$recipe" == ninfer || "$recipe" == a3b ]] && native=1
   [[ "$recipe" == a3b ]] && tiers=0
-  sync_settings "$DSH_DIR/settings.yaml" "${MODEL[$recipe]}" "${NAME[$recipe]}" "$context" "${VISION[$recipe]}" "$native" "$tiers"
-  sync_settings "$WORK_DSH_DIR/settings.yaml" "${MODEL[$recipe]}" "${NAME[$recipe]}" "$context" "${VISION[$recipe]}" "$native" "$tiers"
+  sync_settings "$DSH_DIR/settings.yaml" "${MODEL[$recipe]}" "${NAME[$recipe]}" "$context" "${VISION[$recipe]}" "$native" "$tiers" "$max_tokens"
+  sync_settings "$WORK_DSH_DIR/settings.yaml" "${MODEL[$recipe]}" "${NAME[$recipe]}" "$context" "${VISION[$recipe]}" "$native" "$tiers" "$max_tokens"
 }
 
 sync_from_api() {

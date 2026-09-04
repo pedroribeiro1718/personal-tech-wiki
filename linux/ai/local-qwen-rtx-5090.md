@@ -130,6 +130,13 @@ temperature `0.6`, top-p `0.95`, top-k `20`, min-p `0`, and zero presence and
 frequency penalties. Harness leaves temperature unset, so it does not override
 the backend. No custom sampling adapter is required.
 
+All recipes cap a response at 8,192 tokens, matching Qwen Code's normal first
+request budget. Qwen3.8 retains Harness's 80% compaction threshold; A3B uses
+65% after observed long-session degeneration. After a repetitive response,
+start a fresh session. For deterministic Gherkin table alignment, pin
+`@cucumber/gherkin-utils` in the test repository and run its `format` command
+instead of asking the model to align whitespace.
+
 The earlier custom search/fetch MCP was removed. DeepSeek search stays
 disabled. Native search plus page-fetch execution was acceptance-tested in
 Harness with both new recipes.
